@@ -16,7 +16,7 @@ pip install
 numpy
 scipy
 astropy
-matplotlib==3.5.0
+matplotlib==3.6.3
 configparser
 ipython
 pyqt5
