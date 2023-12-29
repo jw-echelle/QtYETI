@@ -9,7 +9,7 @@ This program is in it's beginning stages and is not yet able to do scientific re
 Everything has been tested in a native python environment. Currently we have no experience using conda environments.
 
 ## Before you start
-python[3][.exe] -m pip install --upgrade pip  
+python[.exe] -m pip install --upgrade pip  
 pip install --upgrade setuptools
 
 ### Requirements
@@ -19,7 +19,6 @@ scipy
 astropy
 matplotlib==3.6.3
 configparser
-ipython
 pyqt5
 
 ### Start QtYETI
