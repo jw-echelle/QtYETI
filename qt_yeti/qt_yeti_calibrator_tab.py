@@ -68,7 +68,7 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 			extent=[0, self.CurrentSpectrogram.xsize-1, 0, self.CurrentSpectrogram.ysize-1],\
 			aspect='auto',\
 			label = "2D_Spectrogram")
-		[self.spectrum_plot] = self.axes_spectrum.plot(self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[self.CurrentSpectrogram.ysize//2,:], linewidth=0.3, label="Data_Spectrum")
+		[self.spectrum_plot] = self.axes_spectrum.plot(self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[self.CurrentSpectrogram.ysize//2,:], linewidth=0.5, label="Data_Spectrum")
 		self.axes_spectrum.set_xlim( self.CurrentSpectrogram.xrange.min(), self.CurrentSpectrogram.xrange.max() )
 		self.axes_spectrum.set_ylim( self.CurrentSpectrogram.intmin, self.CurrentSpectrogram.intmax )
 
@@ -82,7 +82,7 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 			extent=[0, self.CurrentSpectrogram.xsize-1, 0, self.CurrentSpectrogram.ysize-1],\
 			aspect='auto',\
 			label = "2D_Spectrogram_Cal")
-		[self.calibration_help_plot] = self.axes_spectrum.plot(self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[self.CurrentSpectrogram.ysize//2,:], linewidth=0.3, label="Data_Spectrum_Calibration")
+		[self.calibration_help_plot] = self.axes_spectrum.plot(self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[self.CurrentSpectrogram.ysize//2,:], alpha=0.5, linewidth=0.3, drawstyle="steps-mid", label="Data_Spectrum_Calibration")
 		""""""
 
 		[self.order_poly_plot] =  self.axes_spectrogram.plot(0,0,alpha=0.72,linewidth="0.75",color=YetiColors.MIDAS_GREEN, label="Order_Poly_Plot")
@@ -128,7 +128,6 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 		# Update CurrentSpectrogram
 		int_min, int_max = self.CurrentSpectrogram.update_spectrogram(requested_filename)
 
-
 		## Plot spectrogram
 		# https://stackoverflow.com/questions/17835302/how-to-update-matplotlibs-imshow-window-interactively
 		#self.spectrogram_plot.set_data(self.CurrentSpectrogram.data)
@@ -140,6 +139,9 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 		# self.spectrum_plot.axes.set_ylim([0, int_max])
 		self.axes_spectrum.set_xlim([0, self.CurrentSpectrogram.xsize-1])
 		self.axes_spectrum.set_ylim([0, 1.1*self.CurrentSpectrogram.data.max()])
+
+		"""Experimental"""
+		self.calibration_help_plot.set_data(self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[np.uint32(self.CurrentSpectrogram.ysize/2),:])
 
 		self.draw_idle()
 		return int_min, int_max
@@ -252,6 +254,7 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 		
 		""" EXPERIMENTAL """
 		#self.calibration_help_plot.set_data(current_order_xrange,self.calibration_help_matrix[discretized_rows,current_order_xrange])
+		self.calibration_help_plot.set_data(current_order_xrange, self.current_spectral_data)
 
 		#self.spectrum_plot.set_data(current_xrange, self.CurrentSpectrogram.data[int(Spectrogram.order_fit_coefficients[order_index, -1]),:])
 		self.draw_idle()
@@ -690,6 +693,27 @@ class TabCalibrator(QWidget):
 		# One file or two files? Depending on Image Slicer. Can FIT file handle 2 spectra?
 		pass
 		QtYetiLogger(1,"gui_save_single_order_to_fit() triggered. No action.")
+
+		"""Experimental"""
+		current_order = self.figure_canvas.CurrentSpectrogram.order_list[20]
+		current_order_xrange = current_order.x_range
+		current_order_params = current_order.fit_parameters
+		current_order_number = current_order.number_m
+		"""##############"""
+		# Create fit polinomial per order
+		fitted_polynomial = np.asarray(echelle_order_fit_function(current_order_xrange, *current_order_params))
+		discretized_rows = row(fitted_polynomial, self.figure_canvas.CurrentSpectrogram.ysize)
+
+		img_row_size = 31
+		image_matrix = np.zeros((img_row_size, len(current_order_xrange)))
+		for idx in range(0,img_row_size):
+			image_matrix[idx,:] = np.asarray(self.figure_canvas.CurrentSpectrogram.data[discretized_rows+idx-np.int32(img_row_size//2),current_order_xrange])
+		plt.figure()
+		plt.imshow(image_matrix)
+		plt.figure()
+		plt.plot(np.sum(image_matrix, axis=0))
+		plt.plot(image_matrix[1,:])
+		plt.show()
 
 	def gui_save_all_orders_to_fit(self):
 		pass
