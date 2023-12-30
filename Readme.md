@@ -28,6 +28,7 @@ pyqt5
 ### Tested Operating Systems
 • Windows 10/11 64bit  
 • Linux Mint 21.2 (Codename: Victoria)  
+• Ubuntu Linux 22.04  
 
 #### Yeti
 <a href="URL_REDIRECT" target="blank"><img align="center" src="qt_yeti/yeti.png" height="256" /></a>
