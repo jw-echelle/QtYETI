@@ -51,7 +51,8 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 
 		# Tracer Specific
 		## Setup important lists
-		self.TracerSettings = OrderTracerSettings("empty")
+		# Could be omitted
+		self.TracerSettings = OrderTracerSettings("from_file")
 
 	### Plots and Callbacks ###
 	def setup_plots(self):
@@ -123,6 +124,7 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 
 		# Delete point
 		if( isinstance(event, matplotlib.backend_bases.MouseEvent) and event.key == "alt"):
+			print(f"alt + click")
 			self.pop_order_center(evt_x, evt_y)
 			self.update_order_centers_in_plot( evt_x , redraw=False)
 
@@ -151,8 +153,7 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 				#
 				# Find order centers and save them within the Spectrogram
 				#
-				echelle_find_orders( self.CurrentSpectrogram, evt_x, TracerSettings=self.TracerSettings )
-				self.update_order_centers_in_plot( evt_x , redraw=False)
+				self.find_order_centers_on_canvas(evt_x)
 
 			else:
 				self.update_profiles(evt_x, evt_y, redraw=False)
@@ -251,12 +252,21 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		# Goal Draw dots along a line at a fixed jdx
 		# Get all objects in plot
 		delete_mpl_plt_object_by_label(self.axes_flat_field.lines,"orderdot")
+		delete_mpl_plt_object_by_label(self.axes_flat_field.texts,"orderdottext")
 
-		for dot_x, dot_y in self.CurrentSpectrogram.order_centers_list:
+		for index,(dot_x, dot_y) in enumerate(self.CurrentSpectrogram.order_centers_list):
 			self.axes_flat_field.plot(dot_x, dot_y, color = "#00AA00", marker="s", fillstyle="none", markersize=5, markeredgewidth=0.7, label="orderdot")
+			self.axes_flat_field.text(dot_x+10, dot_y+0,f"Relative trace number {index}",fontsize=5,color="red",label="orderdottext")
 		
 		if (redraw):
 			self.draw_idle()
+
+	def find_order_centers_on_canvas(self, x_coordinate: int = 0) -> None:
+		#
+		# Find order centers and save them within the Spectrogram
+		#
+		echelle_find_orders(self.CurrentSpectrogram, x_coordinate, TracerSettings=self.TracerSettings )
+		self.update_order_centers_in_plot(x_coordinate , redraw=True)
 
 	def find_nearest_order(self, event):
 		# if(event.inaxes == self.axes_flat_field):
@@ -323,6 +333,8 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 
 		#bounds = ([0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,0],[4,0,np.inf,np.inf,np.inf,np.inf,np.inf,np.inf])
 
+		QtYetiLogger(QT_YETI.ERROR, f"→→ Urgently implement correct top-to-bottom or bottom-to-top ordering of echelle orders for absolute_m calibration! .", True)
+
 		# Setup loop
 		current_order_number = 1.000
 
@@ -340,7 +352,7 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 
 				x_start = x_series[0]
 				x_stop = x_series[-1]
-				order_list.append( Order(current_order_number, np.arange(x_start, x_stop+1, 1), fit_output) )
+				order_list.append( Order(number_m=current_order_number, x_range=np.arange(x_start, x_stop+1, 1), fit_parameters=fit_output) )
 
 				# Write the results
 				order_fit_coefficients_list.append([float(current_order_number), x_start, x_stop]+fit_output.tolist())
@@ -421,8 +433,8 @@ class TracerSettingWindow(QWidget):
 		self.tracer_window_layout = QVBoxLayout()
 
 		self.first_absolute_order_box = YetiSpinBox()
-		self.order_alignment_down_btn = QRadioButton("Increasing |m| from top to bottom")
-		self.order_alignment_up_btn = QRadioButton("Increasing |m| from bottom to top")
+		self.abs_order_number_m_direction_down_btn = QRadioButton("Increasing |m| from top to bottom")
+		self.abs_order_number_m_direction_up_btn = QRadioButton("Increasing |m| from bottom to top")
 
 		self.spotsize_box = YetiSpinBox()
 		self.image_slicer_box = QCheckBox()
@@ -440,8 +452,7 @@ class TracerSettingWindow(QWidget):
 		self.trace_btn = QPushButton("Start Tracing")
 		self.visible_traces = QCheckBox("View / Hide tracer lines")
 
-		self.order_alignment_down_btn.setChecked(True)
-		self.order_alignment_up_btn.clicked.connect(lambda: print("toggled down"))
+		self.abs_order_number_m_direction_down_btn.setChecked(True)
 
 		qspinboxlimit = (np.power(2,16)-1)
 		self.first_absolute_order_box.setRange(-1 * qspinboxlimit, qspinboxlimit)
@@ -475,8 +486,8 @@ class TracerSettingWindow(QWidget):
 		self.tracer_control.addRow(QLabel("<b>Peak Finding & Tracer Settings</b>"))
 		self.tracer_control.addRow(QLabel("\tConvention: mλ/d cos(γ) = sin(α) + sin(β)"))
 		self.tracer_control.addRow(self.first_absolute_order_box, QLabel("First absolute Order"))
-		self.tracer_control.addRow(self.order_alignment_down_btn)
-		self.tracer_control.addRow(self.order_alignment_up_btn)
+		self.tracer_control.addRow(self.abs_order_number_m_direction_down_btn)
+		self.tracer_control.addRow(self.abs_order_number_m_direction_up_btn)
 		self.tracer_control.addRow(lines[0])
 		self.tracer_control.addRow(QLabel("Read-only. Update values in the Hardware Tab"))
 		self.tracer_control.addRow(self.spotsize_box, QLabel("Spotsize of fiber on detector"))
@@ -512,6 +523,8 @@ class TracerSettingWindow(QWidget):
 		#	child.setRange(-1*qspinboxlimit, qspinboxlimit)
 
 		# Signals/Slots
+		self.abs_order_number_m_direction_down_btn.clicked.connect(lambda: QtYetiLogger(QT_YETI.MESSAGE, f"Order number |m| increases from TOP to BOTTOM."))
+		self.abs_order_number_m_direction_up_btn.clicked.connect(lambda: QtYetiLogger(QT_YETI.MESSAGE, f"Order number |m| increases from BOTTOM to TOP."))
 		self.save_settings_btn.clicked.connect(self.save_tracer_settings_to_file)
 		self.load_settings_btn.clicked.connect(self.load_tracer_settings_from_file)
 		self.trace_btn.clicked.connect(self.start_tracer)
@@ -524,10 +537,28 @@ class TracerSettingWindow(QWidget):
 		self.update_controls()
 
 	def update_controls(self):
-		self.first_absolute_order_box.setValue(		self.CurrentSettings.first_absolute_order)
+		"""
+		`TracerSettingsWindow.update_controls()`\n
+		Method → update_controls()
+		--------------------------
+		Update all Qt buttons and boxes from the settings file
+		"""
+
 		self.spotsize_box.setValue(					self.CurrentSettings.spotsize_px)
 		self.image_slicer_box.setChecked(			self.CurrentSettings.image_slicer)
 		self.image_slicer_separation_box.setValue(	self.CurrentSettings.image_slicer_separation_px)
+
+		self.first_absolute_order_box.setValue(		self.CurrentSettings.first_absolute_order)
+		# Check direction of orders
+		current_direction_value = self.CurrentSettings.abs_order_number_m_direction
+		if  (current_direction_value == "up"):
+			self.abs_order_number_m_direction_up_btn.setChecked(True)
+		elif(current_direction_value == "down"):
+			self.abs_order_number_m_direction_down_btn.setChecked(True)
+		else:
+			QtYetiLogger(QT_YETI.ERROR,f"Unknown abs_order_number_m_direction: {current_direction_value}",True)
+			raise ValueError(f"Unknown abs_order_number_m_direction: {current_direction_value}. It has to be up or down. Please check {QT_YETI.SETTINGS_INI_PATH}")
+
 		self.distance_to_image_edge_box.setValue(	self.CurrentSettings.distance_to_image_edge_px)
 		self.samples_per_order_box.setValue(		self.CurrentSettings.samples_per_order)
 		self.peak_distance_box.setValue(			self.CurrentSettings.peak_distance_px)
@@ -538,10 +569,31 @@ class TracerSettingWindow(QWidget):
 		self.smoothing_order_box.setValue(			self.CurrentSettings.smoothing_order)
 
 	def update_current_settings(self):
-		self.CurrentSettings.first_absolute_order = 		self.first_absolute_order_box.value()
+		"""
+		`TracerSettingsWindow.update_current_settings()`\n
+		Method → update_current_settings()
+		--------------------------
+		Update CurrentSettings (TracerSettings) from Qt button and box inputs
+		"""		
 		self.CurrentSettings.spotsize = 					self.spotsize_box.value()
 		self.CurrentSettings.image_slicer = 				self.image_slicer_box.isChecked()
 		self.CurrentSettings.image_slicer_separation_px = 	self.image_slicer_separation_box.value()
+
+		self.CurrentSettings.first_absolute_order = 		self.first_absolute_order_box.value()
+		# Handle radio buttons
+		current_down_btn_value = self.abs_order_number_m_direction_down_btn.isChecked()
+		current_up_btn_value = self.abs_order_number_m_direction_up_btn.isChecked()
+		direction_value = ""
+		if   (current_down_btn_value is True) and (current_up_btn_value is False):
+			direction_value = "down"
+		elif (current_down_btn_value is False) and (current_up_btn_value is True):
+			direction_value = "up"
+		else:
+			QtYetiLogger(QT_YETI.ERROR, f"Direction was neither up nor down.", True)
+			raise ValueError(f"Unknown state for abs_order_number_m_direction: {self.abs_order_number_m_direction}. It has to be up or down. Please check {QT_YETI.SETTINGS_INI_PATH}")
+		self.CurrentSettings.abs_order_number_m_direction = direction_value
+		QT_YETI.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION = direction_value
+
 		self.CurrentSettings.distance_to_edge = 			self.distance_to_image_edge_box.value()
 		self.CurrentSettings.samples_per_order = 			self.samples_per_order_box.value()
 		self.CurrentSettings.peak_distance_px = 			self.peak_distance_box.value()
@@ -554,8 +606,15 @@ class TracerSettingWindow(QWidget):
 		self.canvas.TracerSettings = self.CurrentSettings
 
 	def save_tracer_settings_to_file(self):
+		"""
+		`TracerSettingsWindow.save_tracer_settings_to_file()`\r\n
+		Method → save_tracer_settings_to_file() 
+		---------------------------------------
+		Save the current state to the settings ini file
+		"""		
 		self.update_current_settings()
 		self.CurrentSettings.to_file()
+		self.canvas.TracerSettings = self.CurrentSettings
 
 	@pyqtSlot()
 	def start_tracer(self):
@@ -803,4 +862,4 @@ class TabOrderTracer(QWidget):
 		self.figure_canvas.CurrentSpectrogram.set_absolute_order_number_m(self.figure_canvas.TracerSettings.first_absolute_order)
 		QtYetiLogger(QT_YETI.MESSAGE,f"Printing list of order.",True)
 		for order in self.figure_canvas.CurrentSpectrogram.order_list:
-			print(order.number_m)
+			print(np.array(order.number_m))

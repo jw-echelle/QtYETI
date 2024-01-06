@@ -21,6 +21,7 @@ import csv
 import configparser # https://docs.python.org/3/library/configparser.html
 from datetime import datetime
 import time
+from typing import Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -79,32 +80,37 @@ class Order:
 		fit_parameters (ndarray): Array of fit parameters starting with the (x_offset) followed by the coefficient of the highest order when using polynomials
 		calibration_parameters (ndarray): Array of calibration parameters to translate from pixel and order_number_m to wavelength
 	"""
+	order_number_calibrated = False
 	number_m: float = None
+
 	x_range: np.ndarray = None
 	fit_parameters: np.ndarray = None
 	
-	calibration_lines = []
-
-	#Where is the function?
+	order_dispersion_calibrated = False
 	calibration_parameters: np.ndarray = None
+	wavelength_array: np.ndarray = None
+	calibration_lines = [] # Tuples of (pixel, wavelenth) of a Thorium-Argon lamp peak or other reference lines
+
 	summation_slice: slice = None
 	summation_weights: np.ndarray = None
-	order_number_calibtrated = False
-	order_dispersion_calibrated = False
 
 class Spectrogram:
-	"""Specrogram Class
+	"""Spectrogram Class
 
 	Check detailed code.
 
 	Returns:
 		Spectrogram: Class of type Spectrogram
 	"""
-	order_centers_list = []
+	
 	order_list = []
 	order_fit_coefficients = []
 	dispersion_fit_coefficients = []
 	fit_function_string = None
+	# Auxilliary
+	order_centers_list = []
+	image_sliced = None
+	image_sliced_traces_per_group = None
 
 	def __init__(self, filename):
 		self.header = 0
@@ -203,11 +209,11 @@ class Spectrogram:
 		try:
 			part1,part2 = requested_filename.split(sep="Order_Fit_Coefficients_")
 			matching_filename = f"{part1}{part2}" # part1 + part2
-
+			
 			cls.order_fit_coefficients = FileReader(requested_filename).read_rows().tolist()
 
 			for order_number, x_start, x_stop, *fit_output in cls.order_fit_coefficients:
-				cls.order_list.append( Order(order_number, np.arange(x_start, x_stop+1, 1, dtype=np.int32), np.asarray(fit_output)))
+				cls.order_list.append( Order(number_m=order_number, x_range=np.arange(x_start, x_stop+1, 1, dtype=np.int32), fit_parameters=np.asarray(fit_output)))
 
 			QtYetiLogger(QT_YETI.MESSAGE,f"Fit Order Coefficients loaded from file via ClassMethod.",True)
 
@@ -277,7 +283,7 @@ class Spectrogram:
 			return cls.order_list
 
 	@classmethod
-	def set_absolute_order_number_m(cls, first_absolute_order: int):
+	def set_absolute_order_number_m(cls, first_absolute_order: int) -> None:
 		"""Set Orders to their physical and absolute order number
 
 		Parameters:
@@ -287,34 +293,45 @@ class Spectrogram:
 		if( cls.order_list ):
 			QtYetiLogger(QT_YETI.MESSAGE,"Calibrating Orders for absolute order m via ClassMethod.",False)
 
-		#first_absolute_order = int(QT_YETI.)
-		
-		orders_per_group = int(QT_YETI.SPECTROMETER_IMAGE_SLICER_ORDERS_PER_GROUP)
-		subgroup_adder = QT_YETI.SPECTROMETER_IMAGE_SLICER_SUBORDER_SUFFIX
-
 		number_of_orders = len(cls.order_list)
+		direction_of_order_magnitude_increase= QT_YETI.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION
+
 		has_image_slicer = QT_YETI.SPECTROMETER_HAS_IMAGE_SLICER
-		orders_are_groupable = (number_of_orders % orders_per_group == 0)
+		traces_per_order = int(QT_YETI.SPECTROMETER_IMAGE_SLICER_TRACES_PER_ORDER)
+		trace_suffix = QT_YETI.SPECTROMETER_IMAGE_SLICER_TRACE_SUFFIX
+
+		# If the number of traced orders is divisible by the provided tracer per order, we can successfully assign a main order number and a suffixed order number.
+		orders_are_groupable = (number_of_orders % traces_per_order == 0)
 		group_image_slicer = (has_image_slicer and orders_are_groupable)
 
-		QtYetiLogger(QT_YETI.WARNING,f"Include the case into the programm when the spectra are reversed. e.g. curved upward.")
+		QtYetiLogger(QT_YETI.ERROR,f"Include the case into the programm when the spectra are reversed. e.g. curved upward.")
 
 		absolute_m = None
+		# Check increaes direction of physical order number |m|
+		if( direction_of_order_magnitude_increase is "up"):
+			cls.order_list.reverse()
+
 		for index, order in enumerate(cls.order_list):
 
 			if( group_image_slicer ):
+				# Per physical order, we now have one or more spectra. Give them the correct physical order number and introduce an identifier, to visually seperate them.
+				# Example: Absolute Order -21 with 2 additional orders: Main signal = -21.000, first sliced order: -21.001, etc...
 				# Group via // operator. 0//3 = 0, 1//3 = 0, 2//3 = 0, 4//3  = 1 ...
-				# Use % to add the correct subgroup adder
-				absolute_m = (index // orders_per_group  + abs(first_absolute_order) + (index % orders_per_group) * subgroup_adder)
+				# Use % to add the correct suborder_suffix
+				absolute_m = (index // traces_per_order + abs(first_absolute_order) + (index % traces_per_order) * trace_suffix)
 
 			else:
-				# There are more or less orders that grouped in sets of QT_YETI.SpectrometerImageslicerOrdersPerGroup 
+				# No image slicer present. One order per physical order m 
 				absolute_m = (index) + abs(first_absolute_order)
 
 			if( first_absolute_order < 0):
 				absolute_m = -1 * absolute_m
 			order.number_m = absolute_m
-			order.order_number_calibtrated = True
+			order.order_number_calibrated = True
+
+		# Revert: Check increaes direction of physical order number |m|
+		if( direction_of_order_magnitude_increase is "up"):
+			cls.order_list.reverse()
 
 	@classmethod
 	def update_fit_function(cls):
@@ -342,7 +359,7 @@ class OrderTracerSettings:
 				config.read(QT_YETI.SETTINGS_INI_PATH)
 
 				self.first_absolute_order =			config.getint("TRACER","TracerFirstAbsoluteOrder")
-				self.order_alignment = 				config.getint("TRACER","TracerOrderAlignment")
+				self.abs_order_number_m_direction = config.get("HARDWARE.Detector","DetectorOrderNumberMagnitudeIncreaseDirection").lower()
 
 				self.distance_to_image_edge_px = 	config.getint("TRACER","TracerDistanceToImageEdgePx")
 				self.samples_per_order = 			config.getint("TRACER","TracerSamplesPerOrder")
@@ -358,11 +375,11 @@ class OrderTracerSettings:
 				del config
 
 			except:
-				QtYetiLogger(-1,"Error while reading OrderTracerSettings.",True)
+				QtYetiLogger(QT_YETI.ERROR,"Error while reading OrderTracerSettings.",True)
 		else:
-			self.spotsize_px = 					0
-			self.image_slicer = 				False
-			self.image_slicer_separation_px = 	0
+			QtYetiLogger(QT_YETI.WARNING,"OrderTracerSettings were not read from the settings file.",True)
+			self.first_absolute_order =			1
+			self.abs_order_number_m_direction = QT_YETI.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION
 
 			self.distance_to_image_edge_px = 	0
 			self.samples_per_order = 			0
@@ -381,6 +398,8 @@ class OrderTracerSettings:
 		config.read(QT_YETI.SETTINGS_INI_PATH)
 
 		config.set("TRACER","TracerFirstAbsoluteOrder",f"{self.first_absolute_order}")
+		config.set("HARDWARE.Detector","DetectorOrderNumberMagnitudeIncreaseDirection",f"{self.abs_order_number_m_direction}")
+		QT_YETI.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION = self.abs_order_number_m_direction
 
 		config.set("TRACER","TracerDistanceToImageEdgePx",f"{self.distance_to_image_edge_px}")
 		config.set("TRACER","TracerSamplesPerOrder",f"{self.samples_per_order}")
@@ -541,7 +560,7 @@ class GenericCanvas( FigureCanvasQTAgg ):
 
 		# Setup sample spectrogram		
 		self.CurrentSpectrogram = Spectrogram("QtYeti.Sample")
-
+		self.active_order_index = 0
 		# Setup all plots and callbacks
 		# self.setup_plots()
 		pass
@@ -872,7 +891,7 @@ Tracing
 """
 def echelle_find_orders( CurrentSpectrogram: Spectrogram = None, x_position = 0, TracerSettings: OrderTracerSettings = None):
 	"""
-	This function finds centers of echelle orders in y↑→x coordinates and not matrix coordinates
+	This function finds centers of echelle orders in _ y↑→x coordinates _ and not matrix coordinates
 	Format [Order, X Position, Y Position]
 	These positions are saved in CurrentSpectrogram
 
@@ -883,14 +902,10 @@ def echelle_find_orders( CurrentSpectrogram: Spectrogram = None, x_position = 0,
 	"""
 
 	if( CurrentSpectrogram == None):
-		print(f"Error in {__name__}.find_order_centers(): No SpectrogramObject loaded.")
-		QtYetiLogger(-1,"No SpectrogramObject loaded.")
-		return -666
+		QtYetiLogger(QT_YETI.ERROR,f"Error in {__name__}.find_order_centers(): No SpectrogramObject loaded.", True)
 
 	if( TracerSettings == None):
-		print(f"Error in {__name__}.find_order_centers(): No TracerSettings provided.")
-		QtYetiLogger(-1,"No SpectrogramObject loaded.")
-		return -666
+		QtYetiLogger(QT_YETI.ERROR,f"Error in {__name__}.find_order_centers(): No TracerSettings provided.", True)
 
 	mat_col = col(x_position, CurrentSpectrogram.xsize)
 	mat_rows = CurrentSpectrogram.ysize
@@ -909,7 +924,6 @@ def echelle_find_orders( CurrentSpectrogram: Spectrogram = None, x_position = 0,
 	# Use the Whittaker smoothing to preserve the peak structures and reduce the noise
 	# Normalize the smoothed spectrum
 	# Use percentage values to decide about prominence and minimum height to find peaks
-
 	current_spectrum = np.squeeze(np.abs(CurrentSpectrogram.data[:,mat_col]))
 	current_spectrum_log10_sm = whittaker_smooth( np.log10(current_spectrum), SMOOTHING_STIFFNESS, SMOOTHING_ORDER )
 	current_min_max_delta = current_spectrum_log10_sm.max() - current_spectrum_log10_sm.min()
@@ -921,14 +935,15 @@ def echelle_find_orders( CurrentSpectrogram: Spectrogram = None, x_position = 0,
 	for peak_index in found_peak_indices:
 		order_centers_list.append([mat_col, row(peak_index, mat_rows)])
 
-	# The |physical_order_number| might increase r decrease when going from top to bottom
-	# in the image depending on the detector setting. This here helps to have the orders properly sorted from the beginning
-	if( QT_YETI.DETECTOR_ABSOLUTE_ORDER_INCREASE_DIRECTION == "up" ):
+	# On a detector, the |physical_order_number| might increase from top to bottom, thus, when x decreases (r increases).
+	# This depends on the detector settings. This here helps to have the orders properly sorted from the beginning if wanted
+	if( QT_YETI.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION is "down" ):
 		order_centers_list.reverse()
+	QtYetiLogger(QT_YETI.WARNING,f"QT_YETI.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION = {QT_YETI.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION}")
+	QtYetiLogger(QT_YETI.WARNING,f"TracerSettings.abs_order_number_m_direction= {TracerSettings.abs_order_number_m_direction}")
 	
 	# Use a class method so set this list for all instances of Spectrogram
 	CurrentSpectrogram.update_order_centers_list(order_centers_list)
-
 
 # Fitting model function
 #def echelle_order_fit_function(x,x0,a_6,a_5,a_4,a_3,a_2,a_1,a_0):
@@ -1454,7 +1469,196 @@ def echelle_order_tracer(CurrentSpectrogram: Spectrogram, CurrentTracerSettings:
 	return x_list, y_list
 
 # Data extraction
-def echelle_order_spectrum_extraction(SpectrogramObject: Spectrogram, order: int, Settings: OrderTracerSettings):
+@elapsed_time
+def echelle_trace_optimal_extraction(CurrentSpectrogram: Spectrogram, order_index: int, extraction_method: str = None) -> Tuple[range, np.ndarray]:
+	"""
+	echelle_trace_optimal_extraction
+	================================
+	Summary
+	-------
+	• Brute force summation for image slicer\r\n
+	• ...
+	
+	Parameters
+	----------
+	CurrentSpectrogram : Spectrogram\r\n
+		Spectrogram used for data extraction\r\n
+	order_index : int\r\n
+		Index of the main trace of an echelle order.\r\n
+	extraction_method : str or None\r\n
+		The extraction method decides on how we extract the spectrogram orders\r\n
+		• "None" and "order_center_pixel" will only extract along the polynomial fit\r\n
+		• "simple_sum" will extract an order by simply summing over an order trace as wide as the spot or slit size\r\n
+		• "sqrt_weighted_sum" will extract an order by weighting the signal of every pixel row by 1/sqrt and summing over an order trace as wide as the spot or slit size\r\n
+		• "optimal" will extract optimally with weights that depend on the signal to noise ratio
+
+	Returns
+	-------
+	Tuple[range, np.ndarray]\r\n
+		Extracted data is a tuple consisting of the x_range (range) and the spectrum/trace (np.ndarray)
+	"""
+	if ( extraction_method ):
+		extraction_method.lower()
+
+	# Read parameters
+	image_sliced = (CurrentSpectrogram.image_sliced or QT_YETI.SPECTROMETER_HAS_IMAGE_SLICER)
+	image_sliced_traces_per_group = (CurrentSpectrogram.image_sliced_traces_per_group or QT_YETI.SPECTROMETER_IMAGE_SLICER_TRACES_PER_ORDER)
+	image_sliced_pixel_distance = abs(QT_YETI.SPECTROMETER_IMAGE_SLICER_SEPARATION_PX)
+	detector_spot_size = QT_YETI.DETECTOR_SPOT_SIZE_PX
+
+	# Get spectral data ready
+	current_order = CurrentSpectrogram.order_list[order_index]
+	current_order_xrange = current_order.x_range
+	current_order_params = current_order.fit_parameters
+	
+	# Create fit polinomial per order
+	fitted_polynomial = np.asarray(echelle_order_fit_function(current_order_xrange, *current_order_params))
+
+	# Discretize and convert to row indices from (x,y) to (r,c)
+	discretized_rows = row(fitted_polynomial, CurrentSpectrogram.ysize)
+
+	# Sum over the extend of the slit/fiber/etc.
+	number_of_rows_for_summation = QT_YETI.DETECTOR_SPOT_SIZE_PX
+
+	# Brute force summation for image sliced spectra
+	# Start at the main trace and sum over all remaining traces of an order group
+	if( image_sliced ):
+		number_of_rows_for_summation = int(detector_spot_size + (image_sliced_traces_per_group - 1) * image_sliced_pixel_distance)
+
+	xrange_size = len(current_order_xrange)
+	extracted_matrix = np.zeros((number_of_rows_for_summation, xrange_size))
+
+	# Case for debugging / sanity checks
+	if ((extraction_method is None) or (extraction_method=="order_center_pixel")):
+		# Just extract along the trace
+		extracted_spectral_data = CurrentSpectrogram.data[discretized_rows,current_order_xrange]
+
+		return current_order_xrange, extracted_spectral_data
+	
+	# Simple summation over all pixels without weights
+	elif extraction_method == "simple_sum":
+		
+		"""Create indices for data extraction → extraced = data_matrix[ mat_rows, mat_columns]"""
+		# Starting point is 'discretized_rows' containing all row indices of a trace center
+		# We want to use this and get the data that is half a spot size above the order/trace center and
+		# another half of a spot size below the center.
+
+		# With an imageslicer, we want to sum up N times the image slicer peak separation, with an offset by half a spot
+		row_indices = np.arange( -detector_spot_size//2 -1, number_of_rows_for_summation - detector_spot_size//2 -1)
+
+		# In order to efficiently extract data, we want to index the data via matrices of row and column indices
+		# Stack the xrange multiple times on top of itself
+		# Example: [1,2,3] → [[1,2,3],[1,2,3],[1,2,3]]
+		extraction_columns = np.tile(current_order_xrange, (number_of_rows_for_summation, 1))
+
+		# Stack 'discretized_rows' on top of itself while adding each time one element from 'row_indices'
+		# Example: d_r = [4,5,6,7], r_i = [-1,0,1] → [[3,4,5,6],[4,5,6,7],[5,6,7,8]]
+		extraction_rows = row_indices[:, np.newaxis] + discretized_rows
+
+		# Get the data
+		extracted_matrix = CurrentSpectrogram.data[extraction_rows, extraction_columns]
+
+		# Sum over all rows
+		extracted_spectral_data = extracted_matrix.sum(axis=0)
+
+		return current_order_xrange, extracted_spectral_data
+	
+	elif extraction_method == "sqrt_weighted_sum":
+		# Sum over all rows
+		extracted_spectral_data = extracted_matrix.sum(axis=0)
+		return current_order_xrange, extracted_spectral_data
+	
+	elif extraction_method == "optimal":
+		return current_order_xrange, extracted_spectral_data
+	
+	else:
+		QtYetiLogger(QT_YETI.ERROR,f"Unknown extraction_method: {extraction_method}",True)
+		raise ValueError(f"Unknown extraction_method: {extraction_method}")
+
+
+
+
+
+
+
+def echelle_order_spectrum_extraction(CurrentSpectrogram: Spectrogram, order_index=None) -> None:
+	"""
+	echelle_order_spectrum_extraction
+	=================================
+	Order extraction from Echelle spectra
+
+	Parameters
+	----------
+	CurrentSpectrogram : Spectrogram
+		Scientific data saved into the Spectrogram object
+	order_index : int or None
+		Order of interest within the Spectrogram.order_list[order_index], by default None
+
+	Returns
+	-------
+	Nothing. Yet...
+
+	"""
+
+	# Fetch order numer list
+	order_number_list = [order.number_m for order in CurrentSpectrogram.order_list]
+
+	# Check if it is calibrated and image-sliced
+	order_number_calibrated = CurrentSpectrogram.order_list[order_index].order_number_calibrated
+
+	# Check the sign of m and take the absolute to have a facilitated calculation
+	sign_of_orders = 1
+	if( order_number_calibrated and (order_number_list[0] < 0)):
+		order_number_list = np.abs(order_number_list).tolist()
+		sign_of_orders = -1
+
+	# Focus on the first (or only) trace within an order group which has no numeric suffix (adder)
+	# Take care of the image-sliced tracer thereafter
+	# Example: m = 21.002 → 3rd trace in image sliced order. main order = int(m) = 21
+	
+	main_order_m = int(order_number_list[order_index]) # → Simpler
+	main_order_index = np.argmin(np.abs(np.asarray(order_number_list) - main_order_m))
+	# main_order_index = min(range(len(CurrentSpectrogram.order_list)), key= lambda x: abs(x.numer_m - main_order_m))
+
+	# Are there any more traces?
+	#  all_trace_indices_in_order = [main_order_index]
+	# 
+	# Due to spectrometer efficiency reasons, it is better to sum image sliced orders starting at the main trace in a fixed summation window
+	# if( image_sliced ):
+	# 	# If the spectrum is sliced, add the remaining orders from the group
+	# 	all_trace_indices_in_order = list(range(main_order_index, main_order_index + image_sliced_traces_per_group))
+
+	
+	
+	# We need to define over which range we can sum the two traces
+	# Image sliced traces within a particular order can have different x ranges
+	# Fast way: np.intersect1d()
+
+
+	# Extract spectra
+	# =================== Please note: prepare for optimal extraction
+	x_range, extraced_spectrum = echelle_trace_optimal_extraction( CurrentSpectrogram, main_order_index, "order_center_pixel")
+
+	# save them
+	if( not order_index ):
+		return
+	
+	# Load Header from original file
+	# Modify header with comments. HISTORY ....
+	# Save spectrum NAXIS = 1
+
+
+
+
+
+
+
+
+
+
+
+
+
 	"""
 	Extraction of spectra off of Echelle Orders with and without an image slicer
 	============================================================================
@@ -1479,12 +1683,29 @@ def echelle_order_spectrum_extraction(SpectrogramObject: Spectrogram, order: int
 	F.sum(axis=0) yields a 1D array with the sum of all entries along all rows.
 
 	"""
+
+	if (order_index):
+		output_order_name = f"_ExtractedOrder"
+	
+	output_file_name = CurrentSpectrogram.filename.split(sep=".fits")
+
+
+	# Split filename at .fit* 
+	# extract order via polynomials 
+	# add option for optimal extraction
+	# but act asif we had the perfect extraction already
+
+
+	pass
+	QtYetiLogger(1,f"echelle_order_spectrum_extraction() used. No action programmed.",True)
+	return
+
 	# All calculations done in (row, column) coordinates.
 	# Polynomial is saved in (x,y) coordinates
 	pass
 
-	total_cols = SpectrogramObject.xsize
-	col_range = col(SpectrogramObject.xrange, total_cols)
+	total_cols = CurrentSpectrogram.xsize
+	col_range = col(CurrentSpectrogram.xrange, total_cols)
 	
 	# Spot size and margin
 	spot_summation_width = np.uint32(np.floor(Settings.spotsize_px/2))
@@ -1496,12 +1717,12 @@ def echelle_order_spectrum_extraction(SpectrogramObject: Spectrogram, order: int
 		image_slicer_separation_half = np.uint32( np.floor(Settings.image_slicer_separation_px/2))
 
 	# Get order coefficients for given order
-	order_coefficients = SpectrogramObject.order_fit_coefficients[order][1:]
+	order_coefficients = CurrentSpectrogram.order_fit_coefficients[order_index][1:]
 	order_center_polynomial = echelle_order_fit_function(col_range, *order_coefficients)
 	discretized_polynomial=np.rint(order_center_polynomial)
 	
 	# ROI preparation. Get min max of the polynomial first, define ROI afterwards
-	discretized_poly_rows = row(discretized_polynomial, SpectrogramObject.ysize)
+	discretized_poly_rows = row(discretized_polynomial, CurrentSpectrogram.ysize)
 	poly_min_idx = discretized_poly_rows.min()
 	poly_max_idx = discretized_poly_rows.max()
 
@@ -1525,7 +1746,7 @@ def echelle_order_spectrum_extraction(SpectrogramObject: Spectrogram, order: int
 	### Generate ROI from data matrix
 	# Add check if out of bounds etc.
 	roi_slice = slice(roi_start_idx, roi_stop_idx+1, 1)
-	relevant_data_matrix = SpectrogramObject.data[roi_slice,:]
+	relevant_data_matrix = CurrentSpectrogram.data[roi_slice,:]
 
 	# Shift polynomial fit relative to the ROI
 	discretized_poly_rows_in_roi = discretized_poly_rows - roi_start_idx
@@ -1564,7 +1785,7 @@ def echelle_order_spectrum_extraction(SpectrogramObject: Spectrogram, order: int
 	mask_row_offsets = row_summation_indices.repeat(total_cols)
 
 	order_mask_rows = mask_rows + mask_row_offsets
-	order_masking_matrix[order_mask_rows, mask_cols]=1
+	order_masking_matrix[order_mask_rows, mask_cols] = 1
 	masked_lower_order = order_masking_matrix * relevant_data_matrix
 	order_intensity = masked_lower_order.sum(axis=0)
 

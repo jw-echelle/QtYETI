@@ -74,6 +74,12 @@ if __name__ == '__main__':
 	print("\r\nYeti Yeti Yeti\r\n")
 	
 	todo_list_message = f"\r\n\
+		• Handle FITS files with multiple images in one file\r\n\
+		• [done] How to deal with positive/negative absolute orders and their direction\r\n\
+		• How should the order_index behave: top to bottom or bottom to top?\r\n\
+		• Load ThAr into Flatfield TAB, click on ThAr Peak and give this order the absolute m number via a window\r\n\
+		• Think of single spectrum viewer via bintables or other means\r\n\
+		• call it trace or order?\r\n\
 		• ConfigParser & SafeConfigParser - check deprecation\r\n\
 		• Log button: ranges are not correct. IntMax/IntMin\r\n\
 		• TracerSettings to be read into QT_YETI_Settings\r\n \

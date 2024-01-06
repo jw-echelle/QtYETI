@@ -123,30 +123,39 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 		return int_min, int_max
 
 	def load_order_fit_coefficients(self, requested_filename = ""):
-		
-		self.order_fit_coefficients_list = Spectrogram.load_order_fit_coefficients(requested_filename)
-		QtYetiLogger(QT_YETI.ERROR, "======================================================================================================")
-		QtYetiLogger(QT_YETI.ERROR, "Here, we need to implement something, that creates the orders in a nice way with bounded x_ranges etc.", True)
-		QtYetiLogger(QT_YETI.ERROR, "======================================================================================================")
-		
-		quit()
+		self.CurrentSpectrogram.load_order_fit_coefficients(requested_filename)
 
 	def plot_spectrum(self, order_index):
+		""" Plot the spectrum along a fitted order
+		-----------------------------------------
+		Parameters:
+			order_index (int): relative order index
+		"""
+		
+		current_order = self.CurrentSpectrogram.order_list[order_index]
+		current_order_xrange = current_order.x_range
+		current_order_params = current_order.fit_parameters
+		#current_order_number = current_order.number_m
+		
+		# Create fit polinomial per order
+		fitted_polynomial = np.asarray(echelle_order_fit_function(current_order_xrange, *current_order_params))
+		discretized_rows = row(fitted_polynomial, self.CurrentSpectrogram.ysize)
+
 		# Extract fit coefficients
 
 		#current_xrange = self.CurrentSpectrogram.xrange
 		""" Experimental """
-		current_xrange = self.CurrentSpectrogram.order_list[order_index].x_range
-		current_params = self.CurrentSpectrogram.order_list[order_index].fit_parameters
+		#current_xrange = self.CurrentSpectrogram.order_list[order_index].x_range
+		#current_params = self.CurrentSpectrogram.order_list[order_index].fit_parameters
 		"""##############"""
 		#current_params = np.asarray(Spectrogram.order_fit_coefficients[order_index])[3:]
 		
 		# Create fit polinomial per order
-		fitted_polynomial = np.asarray(echelle_order_fit_function(current_xrange, *current_params))
+		fitted_polynomial = np.asarray(echelle_order_fit_function(current_order_xrange, *current_order_params))
 
 		# An order can leave the frame of the camer early. We accont for that by shortening the x and y arrays.
 		clip_condition = (fitted_polynomial >= 0) & (fitted_polynomial < self.CurrentSpectrogram.ysize)
-		self.current_xrange = np.asarray(current_xrange[clip_condition])
+		self.current_xrange = np.asarray(current_order_xrange[clip_condition])
 		fitted_polynomial = fitted_polynomial[clip_condition]
 
 		# Discretize and convert to row indices from (x,y) to (r,c)
@@ -156,14 +165,14 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 
 		matricized_rows = np.asanyarray([discretized_rows-2,discretized_rows-1,discretized_rows,discretized_rows+1,discretized_rows+2])
 
-		self.current_spectral_data = np.asarray(self.CurrentSpectrogram.data[discretized_rows,self.current_xrange])
+		self.current_spectral_data = self.CurrentSpectrogram.data[discretized_rows,self.current_xrange]
 
-		self.current_spectral_data +=np.asarray(self.CurrentSpectrogram.data[discretized_rows+1,self.current_xrange])
-		self.current_spectral_data +=np.asarray(self.CurrentSpectrogram.data[discretized_rows+2,self.current_xrange])
-		self.current_spectral_data +=np.asarray(self.CurrentSpectrogram.data[discretized_rows+3,self.current_xrange])
-		self.current_spectral_data +=np.asarray(self.CurrentSpectrogram.data[discretized_rows-1,self.current_xrange])
-		self.current_spectral_data +=np.asarray(self.CurrentSpectrogram.data[discretized_rows-2,self.current_xrange])
-		self.current_spectral_data +=np.asarray(self.CurrentSpectrogram.data[discretized_rows-3,self.current_xrange])
+		self.current_spectral_data += self.CurrentSpectrogram.data[discretized_rows+1,self.current_xrange]
+		self.current_spectral_data += self.CurrentSpectrogram.data[discretized_rows+2,self.current_xrange]
+		self.current_spectral_data += self.CurrentSpectrogram.data[discretized_rows+3,self.current_xrange]
+		self.current_spectral_data += self.CurrentSpectrogram.data[discretized_rows-1,self.current_xrange]
+		self.current_spectral_data += self.CurrentSpectrogram.data[discretized_rows-2,self.current_xrange]
+		self.current_spectral_data += self.CurrentSpectrogram.data[discretized_rows-3,self.current_xrange]
 		#current_spectral_data = np.sum(self.CurrentSpectrogram.data[matricized_rows,current_xrange],axis=0)
 
 		## Experiment
@@ -270,7 +279,7 @@ class TabSpectrometer(QWidget):
 		self.current_order_box.setLayout(QHBoxLayout())
 		self.current_order_spinbox = YetiSpinBox()
 		self.current_order_box.layout().addWidget(self.current_order_spinbox)
-		self.current_order_box.layout().addWidget(QLabel("Current Order (relative)"))
+		self.current_order_box.layout().addWidget(QLabel("Current Order/Trace (relative)"))
 		self.current_order_box.layout().setContentsMargins(0,0,0,0)
 		self.log_scale_chkbx = QCheckBox("Log Scale")
 

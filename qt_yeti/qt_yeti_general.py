@@ -83,8 +83,8 @@ class QtYetiSettings:
 			self.SPECTROMETER_GRATING_OUTGOING_ANGLE_DEG = config.getfloat("HARDWARE.Spectrometer","SpectrometerGratingOutgoingAngleDeg")
 
 			self.SPECTROMETER_HAS_IMAGE_SLICER = config.getboolean("HARDWARE.Spectrometer","SpectrometerHasImageslicer")
-			self.SPECTROMETER_IMAGE_SLICER_ORDERS_PER_GROUP = config.getint("HARDWARE.Spectrometer","SpectrometerImageslicerOrdersPerGroup")
-			self.SPECTROMETER_IMAGE_SLICER_SUBORDER_SUFFIX = config.getfloat("HARDWARE.Spectrometer","SpectrometerImageslicerSuborderSuffix")
+			self.SPECTROMETER_IMAGE_SLICER_TRACES_PER_ORDER = config.getint("HARDWARE.Spectrometer","SpectrometerImageslicerTracesPerOrder")
+			self.SPECTROMETER_IMAGE_SLICER_TRACE_SUFFIX = config.getfloat("HARDWARE.Spectrometer","SpectrometerImageslicerTraceSuffix")
 			self.SPECTROMETER_IMAGE_SLICER_SEPARATION_PX = config.getint("HARDWARE.Spectrometer","SpectrometerImageslicerSeparationPixels")
 
 			self.DETECTOR_FOCAL_LENGTH_MM = config.getfloat("HARDWARE.Detector","DetectorFocalLengthMM")
@@ -97,7 +97,7 @@ class QtYetiSettings:
 			self.DETECTOR_SPOT_SIZE_PX = config.getint("HARDWARE.Detector","DetectorSpotSizePixels")
 			self.DETECTOR_BIT_DEPTH = config.getint("HARDWARE.Detector","DetectorBitDepth")
 			self.DETECTOR_MAX_INTENSITY = np.power(2,self.DETECTOR_BIT_DEPTH)-1
-			self.DETECTOR_ABSOLUTE_ORDER_INCREASE_DIRECTION = config.get("HARDWARE.Detector","DetectorAbsoluteOrderIncreaseDirection").lower()
+			self.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION = config.get("HARDWARE.Detector","DetectorOrderNumberMagnitudeIncreaseDirection")
 
 			del config
 			return 0
@@ -119,8 +119,8 @@ class QtYetiSettings:
 			config.set("HARDWARE.Spectrometer","SpectrometerGratingOutgoingAngleDeg",f"{self.SPECTROMETER_GRATING_OUTGOING_ANGLE_DEG}")
 
 			config.set("HARDWARE.Spectrometer","SpectrometerHasImageslicer",f"{self.SPECTROMETER_HAS_IMAGE_SLICER}")
-			config.set("HARDWARE.Spectrometer","SpectrometerImageslicerOrdersPerGroup",f"{self.SPECTROMETER_IMAGE_SLICER_ORDERS_PER_GROUP}")
-			config.set("HARDWARE.Spectrometer","SpectrometerImageslicerSuborderSuffix",f"{self.SPECTROMETER_IMAGE_SLICER_SUBORDER_SUFFIX}")
+			config.set("HARDWARE.Spectrometer","SpectrometerImageslicerTracesPerOrder",f"{self.SPECTROMETER_IMAGE_SLICER_TRACES_PER_ORDER}")
+			config.set("HARDWARE.Spectrometer","SpectrometerImageslicerTraceSuffix",f"{self.SPECTROMETER_IMAGE_SLICER_TRACE_SUFFIX}")
 			config.set("HARDWARE.Spectrometer","SpectrometerImageslicerSeparationPixels",f"{self.SPECTROMETER_IMAGE_SLICER_SEPARATION_PX}")
 
 			config.set("HARDWARE.Detector","DetectorFocalLengthMM",f"{self.DETECTOR_FOCAL_LENGTH_MM}")
@@ -132,8 +132,7 @@ class QtYetiSettings:
 			config.set("HARDWARE.Detector","DetectorPixelBinning",f"{self.DETECTOR_PIXEL_BINNING}")
 			config.set("HARDWARE.Detector","DetectorSpotSizePixels",f"{self.DETECTOR_SPOT_SIZE_PX}")
 			config.set("HARDWARE.Detector","DetectorBitDepth",f"{self.DETECTOR_BIT_DEPTH}")
-			config.set("HARDWARE.Detector","DetectorAbsoluteOrderIncreaseDirection",f"{self.DETECTOR_ABSOLUTE_ORDER_INCREASE_DIRECTION}".lower())
-
+			
 			with open(QT_YETI.SETTINGS_INI_PATH, 'w') as configfile:
 				config.write(configfile)
 			del config
