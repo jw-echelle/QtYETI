@@ -40,6 +40,7 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 
 		# Setup sample spectrogram		
 		self.CurrentSpectrogram = Spectrogram("QtYeti.Sample")
+		self.active_order_index = 0
 
 		# Setup all plots and callbacks
 		self.setup_plots()
@@ -67,17 +68,23 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 			extent=[0, self.CurrentSpectrogram.xsize-1, 0, self.CurrentSpectrogram.ysize-1],\
 			aspect='auto',\
 			label = "2D_Spectrogram")
-		[self.spectrum_plot] = self.axes_spectrum.plot(self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[256,:], linewidth=0.3, label="Data_Spectrum")
+		[self.spectrum_plot] 		= self.axes_spectrum.plot(self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[self.CurrentSpectrogram.ysize//2,:], linewidth=0.6, label="Data_Spectrum")
+		[self.spectrum_plot_pixels] = self.axes_spectrum.plot(self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[self.CurrentSpectrogram.ysize//2,:], alpha=0.6, linewidth=0.45, drawstyle="steps-mid", label="Data_Spectrum_Pixel_Intensity")
 		self.axes_spectrum.set_xlim( self.CurrentSpectrogram.xrange.min(), self.CurrentSpectrogram.xrange.max() )
 		self.axes_spectrum.set_ylim( self.CurrentSpectrogram.intmin, self.CurrentSpectrogram.intmax )
 
-		[self.order_poly_plot] =  self.axes_spectrogram.plot(0,0,alpha=0.72,linewidth="0.5",color=YetiColors.RED, label="Order_Poly_Plot")
-		[self.background_poly_plot] = self.axes_spectrogram.plot(0,0,alpha=0.72,linewidth="0.5",color=YetiColors.YELLOW, label="Background_Poly_Plot")
-		[self.sliced_poly_plot] =  self.axes_spectrogram.plot(0,0,alpha=0.72,linewidth="0.5",color=YetiColors.ORANGE, label="Sliced_Poly_Plot")
+		[self.order_poly_plot] =  self.axes_spectrogram.plot(0,0,alpha=0.75,linewidth="0.5",color=YetiColors.RED, label="Order_Poly_Plot")
+		[self.order_higher_row_plot] = self.axes_spectrogram.plot(0,0,alpha=0.25,linewidth="0.5",color=YetiColors.YETI_WHITE, label="Order_Summation_Higher_Row")
+		[self.order_lower_row_plot] =  self.axes_spectrogram.plot(0,0,alpha=0.25,linewidth="0.5",color=YetiColors.YETI_WHITE, label="Order_Summation_Lower_Row")
+
+		# Text
+		self.axes_spectrogram_text = self.axes_spectrogram.text(transform=self.axes_spectrogram.transAxes, ha='left', va='top', x=0.005, y=0.98, label="loaded_file_path", weight="bold", color="#AAAAAA", s=f"No data loaded.")
+		self.axes_spectrum_text = self.axes_spectrum.text(transform=self.axes_spectrum.transAxes, ha='left', va='top', x=0.005, y=0.98, s=f"No data loaded.", label="texts_current_order")
 
 		# Event handling
 		self.mpl_connect('button_release_event', self.canvas_key_or_mouse_event)
 		self.mpl_connect('key_press_event', self.canvas_key_or_mouse_event)
+		self.mpl_connect("scroll_event", self.canvas_scroll_event)
 
 	### Navigation Bar ###
 	def return_navigation_bar(self):
@@ -86,17 +93,28 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 
 	### MPL Callbacks ###
 	def canvas_key_or_mouse_event(self, event):
+		if(event.inaxes == self.axes_spectrogram):
+			evt_x = np.int32(np.rint(event.xdata))
+			evt_y = np.int32(np.rint(event.ydata))
 
-		if(event.inaxes is not self.axes_spectrogram):
-			return
-		
-		evt_x = np.int32(np.rint(event.xdata))
-		evt_y = np.int32(np.rint(event.ydata))
+			nearest_order_index = self.find_nearest_order_index(evt_x, evt_y)
+			if(nearest_order_index != np.NaN):
+				self.update_spectrum(nearest_order_index)
 
-		QtYetiLogger(QT_YETI.MESSAGE,f"Nearest order number {self.find_nearest_order_index(evt_x, evt_y) + 1}")
+			QtYetiLogger(QT_YETI.MESSAGE,f"Nearest order number {nearest_order_index + 1}")
 
-		self.draw_idle()
 		pass
+
+	def canvas_scroll_event(self, event):
+		if(event.inaxes == self.axes_spectrogram):
+			print(event)
+			print(type(event)) # MouseEvent
+			print(event.button, event.step)
+
+			new_index = int(np.clip(self.active_order_index + int(event.step),a_min=1,a_max=len(self.CurrentSpectrogram.order_list)-1))
+
+			self.active_order_index = new_index
+			_ = self.update_spectrum(self.active_order_index)
 
 	# Plotting
 	def load_spectrogram(self, requested_filename = ""):
@@ -104,135 +122,189 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 			QtYetiLogger(QT_YETI.ERROR,"No file name provided.")
 			return
 		
+		QtYetiLogger(QT_YETI.MESSAGE,f"{requested_filename} loaded.")
+
 		# Update CurrentSpectrogram
 		int_min, int_max = self.CurrentSpectrogram.update_spectrogram(requested_filename)
-		QtYetiLogger(QT_YETI.MESSAGE,f"{requested_filename} loaded.")
+		sample_data = (self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[np.uint32(self.CurrentSpectrogram.ysize/2),:])
+
+		self.row_of_intensity_max, self.column_of_intensity_max = np.unravel_index(np.argmax(self.CurrentSpectrogram.data), self.CurrentSpectrogram.shape)
 
 		## Plot spectrogram
 		# https://stackoverflow.com/questions/17835302/how-to-update-matplotlibs-imshow-window-interactively
+		#self.spectrogram_plot.set_data(self.CurrentSpectrogram.data)
 		self.spectrogram_plot.set_data(self.CurrentSpectrogram.data)
 		self.spectrogram_plot.set_extent([0, self.CurrentSpectrogram.xsize-1, 0, self.CurrentSpectrogram.ysize-1])
 		self.spectrogram_plot.set_clim(int_min, int_max)
 
-		self.spectrum_plot.set_data(self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[np.uint32(self.CurrentSpectrogram.ysize/2),:])
+		# Change text on spectrogram
+		self.axes_spectrogram_text.set_text(f"{requested_filename}")
+
+		self.spectrum_plot.set_data(sample_data)
+		self.spectrum_plot_pixels.set_data(sample_data)
 		# self.spectrum_plot.axes.set_ylim([0, int_max])
 		self.axes_spectrum.set_xlim([0, self.CurrentSpectrogram.xsize-1])
-		self.axes_spectrum.set_ylim([0, 1.1*self.CurrentSpectrogram.data.max()])
+		#self.axes_spectrum.set_ylim([0, 1.1*self.CurrentSpectrogram.data.max()])
+
+
 
 		self.draw_idle()
+
 		return int_min, int_max
 
-	def load_order_fit_coefficients(self, requested_filename = ""):
-		self.CurrentSpectrogram.load_order_fit_coefficients(requested_filename)
+	def update_intensities(self, int_min=0, int_max=1):
+		""" Set color / intensity limit """
+		self.spectrogram_plot.set_clim(vmin=int_min, vmax=int_max)
+#		self.axes_spectrum.set_xlim(int_min, int_max)
+		self.axes_spectrum.set_ylim(int_min, int_max)
 
-	def plot_spectrum(self, order_index):
-		""" Plot the spectrum along a fitted order
-		-----------------------------------------
-		Parameters:
-			order_index (int): relative order index
-		"""
-		
-		current_order = self.CurrentSpectrogram.order_list[order_index]
-		current_order_xrange = current_order.x_range
-		current_order_params = current_order.fit_parameters
-		#current_order_number = current_order.number_m
-		
-		# Create fit polinomial per order
-		fitted_polynomial = np.asarray(echelle_order_fit_function(current_order_xrange, *current_order_params))
-		discretized_rows = row(fitted_polynomial, self.CurrentSpectrogram.ysize)
-
-		# Extract fit coefficients
-
-		#current_xrange = self.CurrentSpectrogram.xrange
-		""" Experimental """
-		#current_xrange = self.CurrentSpectrogram.order_list[order_index].x_range
-		#current_params = self.CurrentSpectrogram.order_list[order_index].fit_parameters
-		"""##############"""
-		#current_params = np.asarray(Spectrogram.order_fit_coefficients[order_index])[3:]
-		
-		# Create fit polinomial per order
-		fitted_polynomial = np.asarray(echelle_order_fit_function(current_order_xrange, *current_order_params))
-
-		# An order can leave the frame of the camer early. We accont for that by shortening the x and y arrays.
-		clip_condition = (fitted_polynomial >= 0) & (fitted_polynomial < self.CurrentSpectrogram.ysize)
-		self.current_xrange = np.asarray(current_order_xrange[clip_condition])
-		fitted_polynomial = fitted_polynomial[clip_condition]
-
-		# Discretize and convert to row indices from (x,y) to (r,c)
-		discretized_polynomial = np.clip( np.rint(fitted_polynomial), 0, self.CurrentSpectrogram.ysize)
-		# discretized_polynomial = discretized_polynomial.astype(np.uint32) # row() takes care of this
-		discretized_rows = row(discretized_polynomial, self.CurrentSpectrogram.ysize)
-
-		matricized_rows = np.asanyarray([discretized_rows-2,discretized_rows-1,discretized_rows,discretized_rows+1,discretized_rows+2])
-
-		self.current_spectral_data = self.CurrentSpectrogram.data[discretized_rows,self.current_xrange]
-
-		self.current_spectral_data += self.CurrentSpectrogram.data[discretized_rows+1,self.current_xrange]
-		self.current_spectral_data += self.CurrentSpectrogram.data[discretized_rows+2,self.current_xrange]
-		self.current_spectral_data += self.CurrentSpectrogram.data[discretized_rows+3,self.current_xrange]
-		self.current_spectral_data += self.CurrentSpectrogram.data[discretized_rows-1,self.current_xrange]
-		self.current_spectral_data += self.CurrentSpectrogram.data[discretized_rows-2,self.current_xrange]
-		self.current_spectral_data += self.CurrentSpectrogram.data[discretized_rows-3,self.current_xrange]
-		#current_spectral_data = np.sum(self.CurrentSpectrogram.data[matricized_rows,current_xrange],axis=0)
-
-		## Experiment
-		# data_tuple,summation_tuple = echelle_order_spectrum_extraction(self.CurrentSpectrogram, order_index, OrderTracerSettings())
-		# summation_offsets = summation_tuple[0].repeat(self.CurrentSpectrogram.xsize)
-		
-		# dynamic_masking_matrix = np.full(self.CurrentSpectrogram.shape,0.4)
-		# dynamic_masking_columns = np.tile(current_xrange, summation_tuple[1])
-		# dynamic_masking_rows = np.tile(discretized_rows, summation_tuple[1])
-		# dynamic_masking_matrix[dynamic_masking_rows+7 + summation_offsets, dynamic_masking_columns] = 1
-		# dynamic_masking_matrix[dynamic_masking_rows+7 - summation_offsets, dynamic_masking_columns] = 1
-		
-		# masked_data = self.CurrentSpectrogram.data * dynamic_masking_matrix
-
-
-		# self.spectrogram_plot.set_data(masked_data)
-		# self.spectrum_plot.set_data(current_xrange,data_tuple[0])
-
-		self.order_poly_plot.set_data(self.current_xrange, fitted_polynomial)
-		# if( QT_YETI.SPECTROMETER_HAS_IMAGE_SLICER ):
-		# 	self.background_poly_plot.set_data(current_xrange, fitted_polynomial + QT_YETI.SPECTROMETER_IMAGE_SLICER_SEPARATION_PX/2)
-		# 	self.sliced_poly_plot.set_data(current_xrange, fitted_polynomial + QT_YETI.SPECTROMETER_IMAGE_SLICER_SEPARATION_PX)
-
-		self.spectrum_plot.set_data(self.current_xrange, self.current_spectral_data)
-		self.axes_spectrum.set_ylim([0, 1.1 * self.current_spectral_data.max()])
-		
-		#self.spectrum_plot.set_data(current_xrange, self.CurrentSpectrogram.data[int(Spectrogram.order_fit_coefficients[order_index, -1]),:])
+		self.update_scale_type(self.scale_type, int_min, int_max)
 		self.draw_idle()
 
-	def update_spectrum(self, order_number: int):
-		order_index = -1
-		if( Spectrogram.order_list != []):	
-			# Limit order index to the size of the fit coefficient list entries
-			order_index = int(np.rint(np.clip( order_number-1, 0, len(Spectrogram.order_list)-1)))
-			self.plot_spectrum(order_index)
-		else:
-			QtYetiLogger(QT_YETI.ERROR,f"No Fit Coefficients loaded.")
+	def update_scale_type(self, new_scale_type: str, int_min=0, int_max=1):
+		"""
+		Set new scale type: choose between Linear and Logarithmic.
+		"""
+		new_normalization = None
+		if( (new_scale_type != None) and (int_max > int_min) ):
+			if( new_scale_type == "log"):
+				if(np.int32(np.rint(int_min)) <= 0):
+					int_min = 1e-1
+				new_normalization = matplotlib.colors.LogNorm(vmin=int_min, vmax=int_max)
+					
+			elif( new_scale_type == "linear"):
+				new_normalization = matplotlib.colors.Normalize(vmin=int_min, vmax=int_max)
+
+			else:
+				return
+			
+			self.scale_type = new_scale_type
+			self.spectrogram_plot.set_norm(new_normalization)
+			self.axes_spectrum.set_yscale(new_scale_type)
+			self.draw_idle()
+
+	def load_order_information(self, requested_filename = ""):
+		Spectrogram.load_order_information(requested_filename)
+
+	def plot_spectrum(self, order_index: int) -> None:
+		"""
+		Plot the spectrum along a fitted order
+
+		### Details
+		• Extractring data from the spectrogram along a polynomial\r\n
+		• Updating plots and annotations
+
+		#### Parameters:
+			`order_index` (int): Requested order index
+		"""
+		self.active_order_index = order_index
+
+		# Optimum Extraction
+		x_range, spectral_data, extracted_rows, extracted_columns \
+			= echelle_trace_optimal_extraction(self.CurrentSpectrogram, self.active_order_index, "simple_sum")
+
+		CurrentOrder = self.CurrentSpectrogram.order_list[self.active_order_index]
+		order_number = CurrentOrder.number_m
+		order_number_calibrated = CurrentOrder.order_number_calibrated
+		fit_parameters = CurrentOrder.fit_parameters
+		fitted_polynomial = np.asarray(echelle_order_fit_function(x_range, *fit_parameters))
+
+		# Plotting
+		self.spectrum_plot.set_data( x_range, spectral_data )
+		self.spectrum_plot_pixels.set_data( x_range, spectral_data )
+		#### REMOVE ##### self.calibration_help_plot.set_data( echelle_trace_quick_plot(self.CurrentSpectrogram, self.active_order_index, spectral_data.max()) )
+		# Plot an indication of there the order was traced
+		self.order_poly_plot.set_data(x_range, fitted_polynomial)
+
+		# Adapt axes values
+		self.axes_spectrum.set_ylim([0, 1.1 * spectral_data.max()])
+
+		# Delete previous
+		delete_mpl_plt_object_by_label(self.axes_spectrogram.texts,"trace_description")
+
+		# Annotate trace
+		text_x_coordinate = QT_YETI.ANNOTATION_X_COORDINATE
+		text_y_coordinate = 5 + np.asarray(echelle_order_fit_function(text_x_coordinate, *fit_parameters)).max()
+		self.axes_spectrogram.text(text_x_coordinate, text_y_coordinate,f"Relative trace number {order_index+1}",fontsize=6,color=YetiColors.YETI_WHITE,label="trace_description")
+
+		# Change Order Number
+		if(self.axes_spectrum.texts):
+			order_type = f"Relative order"
+			if( order_number_calibrated ):
+				order_type = f"Absolute order"
+			self.axes_spectrum_text.set_text(f"{order_type}: {order_number}")
+
+		"""" Experimental - Dynamic masking"""
+		dynamic_masking_matrix = np.ones(self.CurrentSpectrogram.shape)
+		dynamic_masking_matrix[extracted_rows, extracted_columns] = 1.75
 		
-		return int(order_index + 1)
+		masked_data = self.CurrentSpectrogram.data * dynamic_masking_matrix
+		self.spectrogram_plot.set_data(masked_data)
+		#### REMOVE ##### self.spectrogram_plot_cal.set_data(dynamic_masking_matrix)
+		""""""
 
-	def find_nearest_order_index(self,x = 0, y = 0):
-		if (Spectrogram.order_fit_coefficients != []):
-			orders_and_coefficients = np.asarray(Spectrogram.order_fit_coefficients)
-			orders = orders_and_coefficients[:,0]
-			coefficients = orders_and_coefficients[:,1:]
+		self.draw_idle()
 
-			ylist = []
-			#for i in np.arange(0,len(orders)-1):
-			for idx,i in enumerate(orders):
-				params = coefficients[idx]
-				y_fit = echelle_order_fit_function(x, *params)
-				ylist.append(y_fit)
+	def update_spectrum(self, order_index: int) -> int:
+		"""
+		Update the spectrum according to the requested `order_index`
 
-			nearest_index = np.argmin(np.abs( np.asarray(ylist)-y ))
+		#### Parameters:
+			`order_index` (int): Requested order_index from GUI
 
+		#### Returns:
+			`int`: Retruns the currently active order/trace index
+		"""		
+		if( Spectrogram.order_list != []):	
+			# Limit order index to the size of the order list entries
+			order_index = int(np.clip(order_index, 0, len(Spectrogram.order_list) - 1))
+
+			self.active_order_index = order_index
+			self.plot_spectrum(self.active_order_index)
+
+		else:
+			QtYetiLogger(QT_YETI.ERROR,f"No Order Information loaded.")
+		
+		return int(self.active_order_index)
+
+	def find_nearest_order_index(self, evt_x:int, evt_y:int) -> int:
+		"""
+		Click on any position within the canvas and get back the nearest order index
+
+		#### Parameters:
+			`evt_x` (int): x coordinate of mouse click as integer
+			`evt_y` (int): y coordinate of mouse click as integer
+
+		#### Returns:
+			`int`: Returns the nearest order index to click position on the canvas
+		"""
+		if (Spectrogram.order_list):
+			y_list = []
+			for order in Spectrogram.order_list:
+				fit_parameters = order.fit_parameters
+				y_list.append( echelle_order_fit_function(evt_x, *fit_parameters))
+			nearest_index = np.argmin(np.abs( np.asarray(y_list)-evt_y ))
 			return nearest_index
 
 		else:
 			QtYetiLogger(QT_YETI.ERROR,"Nearest Order not found. Returning np.NAN.")
 			return np.NAN
+
+	def trigger_order_extraction( self, mode:str ) -> None:
+		"""
+		Trigger order extraction
+		### Details
+		This method extracts either one selected order into a FITs file or loops over all orders to generate one file per order.
+		#### Parameters:
+			`mode` (str): Extraction mode: `"single"` for extracting the current order and `"all"` for looping over all orders
+		"""
+		# Check if orders are available
+		if(Spectrogram.order_list):
+			
+			echelle_order_spectrum_to_fits(self.CurrentSpectrogram, extraction_mode=mode, order_index=self.active_order_index, single_trace_mode=False)
+
+		else:
+			QtYetiLogger(QT_YETI.ERROR,f"No Fit Coefficients / Orders loaded.")
 
 # Tab for MainWindow
 class TabSpectrometer(QWidget):
@@ -246,11 +318,11 @@ class TabSpectrometer(QWidget):
 		self.setupTabStructure()
 		self.customizeTab()
 		
-		for child in self.findChildren((QWidget, QPushButton, QSpinBox)):
-			child.setFocusPolicy(Qt.NoFocus)
-		self.setFocusPolicy(Qt.NoFocus)
+		# for child in self.findChildren((QWidget, QPushButton, QSpinBox)):
+		# 	child.setFocusPolicy(Qt.NoFocus)
+		# self.setFocusPolicy(Qt.NoFocus)
 
-		self.order_fit_coefficients_list = []
+		self.figure_canvas.draw()
 
 	def setupTabStructure(self):
 		# Top Level Tab layout
@@ -271,53 +343,81 @@ class TabSpectrometer(QWidget):
 		self.control_panel_layout = QGridLayout()
 		self.control_panel_layout.setContentsMargins(0,0,0,0)
 		self.control_panel.setLayout(self.control_panel_layout)
-		
-		#self.control_panel_layout.setSpacing(0)
+
+#		self.control_panel_layout.setSpacing(0)
+
+		# Intensity spinbox widget
+		self.intensity_control = QWidget()
+		self.intensity_control_layout = QHBoxLayout()
+		self.intensity_control_layout.setContentsMargins(0,0,0,0)
+		self.intensity_control.setLayout( self.intensity_control_layout )
 
 		# Active order box
 		self.current_order_box = QWidget()
 		self.current_order_box.setLayout(QHBoxLayout())
 		self.current_order_spinbox = YetiSpinBox()
 		self.current_order_box.layout().addWidget(self.current_order_spinbox)
-		self.current_order_box.layout().addWidget(QLabel("Current Order/Trace (relative)"))
+		self.current_order_box.layout().addWidget(QLabel("Current Trace/Order (relative)"))
 		self.current_order_box.layout().setContentsMargins(0,0,0,0)
+
+		# Create Intensity Spinboxes
+		self.intensity_max = YetiSpinBox()
+		self.intensity_min = YetiSpinBox()
 		self.log_scale_chkbx = QCheckBox("Log Scale")
+		self.intensity_control_layout.addWidget(self.intensity_max)
+		self.intensity_control_layout.addWidget(QLabel("Intensity maximum"))
+		self.intensity_control_layout.addWidget(self.intensity_min)
+		self.intensity_control_layout.addWidget(QLabel("Intensity minimum"))
+		self.intensity_control_layout.addWidget(self.log_scale_chkbx)
 
 		# Create Buttons
-		self.action_load_spectrogram_btn	= QPushButton("Load Spectrogram")
-		self.action_load_coefficients_btn	= QPushButton("Load Fit Coefficients")
-		self.action_save_currentorder_btn	= QPushButton("Save Current Order")
-		self.action_save_allorders_btn		= QPushButton("Save All Orders")
+		self.action_load_spectrogram_btn	= QPushButton(text="Load Spectrogram", clicked=self.gui_load_spectrogram_file)
+		self.action_load_coefficients_btn	= QPushButton(text="Load Order Information", clicked=self.gui_load_order_information)
 
-		self.control_panel_layout.addWidget(self.log_scale_chkbx,0,0)
+		self.action_save_currentorder_btn	= QPushButton(text="Save Current Order", clicked=self.gui_save_current_order_to_fit)
+		self.action_save_allorders_btn		= QPushButton(text="Save All Orders", clicked=self.gui_save_all_orders_to_fit)
+
+		self.control_panel_layout.addWidget(self.intensity_control,0,0)
 		self.control_panel_layout.addWidget(self.current_order_box,0,1)
 		self.control_panel_layout.addWidget(self.action_load_spectrogram_btn,0,2)
 		self.control_panel_layout.addWidget(self.action_load_coefficients_btn,0,3)
+
 		self.control_panel_layout.addWidget(self.action_save_currentorder_btn,0,4)
 		self.control_panel_layout.addWidget(self.action_save_allorders_btn,0,5)
 
+		# Widths and limits
+		self.intensity_max.setValue(np.int32(self.figure_canvas.CurrentSpectrogram.intmax))
+		self.intensity_min.setValue(np.int32(self.figure_canvas.CurrentSpectrogram.intmin))
+
 		### ### ### Connect signals/slots ### ### ###
-		self.current_order_spinbox.editingFinished.connect(self.gui_set_order_index)
-		self.current_order_spinbox.valueChanged.connect(self.gui_set_order_index)
+		self.intensity_max.valueChanged.connect(self.gui_intensity_changed)
+		self.intensity_min.valueChanged.connect(self.gui_intensity_changed)
 		self.log_scale_chkbx.stateChanged.connect(self.gui_log_scale_changed)
 
-		self.action_load_spectrogram_btn.clicked.connect(self.gui_load_spectrogram_file)
-		self.action_load_coefficients_btn.clicked.connect(self.gui_load_order_fit_coefficients)
-		
-		self.action_save_currentorder_btn.clicked.connect(self.gui_save_single_order_to_fit)
-		self.action_save_allorders_btn.clicked.connect(self.gui_save_all_orders_to_fit)
+		self.current_order_spinbox.editingFinished.connect(self.gui_set_order_index)
+		self.current_order_spinbox.valueChanged.connect(self.gui_set_order_index)
+
+		# Signal connected at QPushButton creation. Example below:
+		# self.action_load_spectrogram_btn.clicked.connect(self.gui_load_spectrogram_file)
 
 	# Signals / Slots
 	@pyqtSlot()
 	def gui_load_spectrogram_file(self):
 		caption = "Select spectrogram file"
-		initial_filter="Fits files (*.fits)"
-		file_filter="Fits files (*.fits);; All files (*.*)"
+		initial_filter="Fits files (*.fit *.fits)"
+		file_filter="Fits files (*.fit *.fits);; All files (*.*)"
 		requested_filename, _  = QFileDialog.getOpenFileName(self, caption = caption, initialFilter=initial_filter, filter=file_filter)
 
 		if(requested_filename != ""):
 			int_min, int_max = self.figure_canvas.load_spectrogram(requested_filename)
 			self.spectrogram_filename = requested_filename
+			self.intensity_max.setValue(int_max)
+			self.intensity_min.setValue(int_min)
+			# self.x_max.setValue(self.figure_canvas.CurrentSpectrogram.xsize-1)
+			# self.y_max.setValue(self.figure_canvas.CurrentSpectrogram.ysize-1)
+			# self.x_min.setValue(0)
+			# self.y_min.setValue(0)
+			print(self.figure_canvas.CurrentSpectrogram)
 
 	@pyqtSlot()
 	def gui_update_spectrum(self):
@@ -325,52 +425,62 @@ class TabSpectrometer(QWidget):
 		pass
 
 	@pyqtSlot()
+	def gui_intensity_changed(self):
+		max = self.intensity_max.value()
+		min = self.intensity_min.value()
+		QtYetiLogger(QT_YETI.MESSAGE,f"New Intensity Range: {min,max}",True)
+		if( min < max):
+			self.figure_canvas.update_intensities(min, max)
+
+	@pyqtSlot()
 	def gui_log_scale_changed(self):
 		# Toggle Log scale in plots
 		int_max = self.intensity_max.value()
 		int_min = self.intensity_min.value()
-		new_normalization = -1
-
+		scale_type = None
 		if(self.log_scale_chkbx.checkState() != 0):
 			scale_type = "log"
-			if(np.int32(np.rint(int_min)) <= 0):
-				int_min = 1e-1
-			new_normalization = matplotlib.colors.LogNorm(vmin=int_min, vmax=int_max)
 		else:
 			scale_type = "linear"
-			new_normalization = matplotlib.colors.Normalize(vmin=int_min, vmax=int_max)
-
-		self.figure_canvas.axes_flat_rows.set_xscale(scale_type)
-		self.figure_canvas.axes_flat_cols.set_yscale(scale_type)
-		self.figure_canvas.spectrogram_plot.set_norm(new_normalization)
-
-		self.figure_canvas.draw_idle()
+		self.figure_canvas.update_scale_type(scale_type, int_min, int_max)
 
 	@pyqtSlot()
-	def gui_load_order_fit_coefficients(self):
-		caption="Select Fit Coefficient File"
-		initial_filter="Order Fit Coefficient Files (*.txt)"
-		file_filter="Order Fit Coefficient Files (*.txt);; All files (*.*)"
+	def gui_axes_changed(self):
+		x_max = self.x_max.value()
+		x_min = self.x_min.value()
+		y_max = self.y_max.value()
+		y_min = self.y_min.value()
+		if((x_min < x_max) | (y_min < y_max)):
+			self.figure_canvas.axes_spectrogram.set_xlim(x_min, x_max)
+			self.figure_canvas.axes_spectrogram.set_ylim(y_min, y_max)
+			#self.figure_canvas.axes_flat_rows.set_ylim(y_min, y_max)
+			self.figure_canvas.axes_spectrum.set_xlim(x_min, x_max)
+			self.figure_canvas.draw_idle()
+			
+
+	@pyqtSlot()
+	def gui_load_order_information(self):
+		caption="Select Order Information File"
+		initial_filter="Order Information Files (*.txt)"
+		file_filter="Order Information Files (*.txt);; All files (*.*)"
 		requested_filename, _  = QFileDialog.getOpenFileName(self, caption = caption, initialFilter=initial_filter, filter=file_filter)	
-
 		if(requested_filename != ""):
-			self.figure_canvas.load_order_fit_coefficients(requested_filename)
+			self.figure_canvas.load_order_information(requested_filename)
 
 	@pyqtSlot()
-	def gui_save_single_order_to_fit(self):
+	def gui_save_current_order_to_fit(self):
 		# One file or two files? Depending on Image Slicer. Can FIT file handle 2 spectra?
-		pass
-		FileSaver(self.figure_canvas.CurrentSpectrogram.filename+".txt", "Pixel, Spectrum",[[i,j] for i,j in zip(self.figure_canvas.current_xrange, self.figure_canvas.current_spectral_data)])
-		QtYetiLogger(QT_YETI.WARNING,"gui_save_single_order_to_fit() triggered. No action.")
-
+		QtYetiLogger(QT_YETI.WARNING,f"gui_save_current_order_to_fit(\"single\") triggered.")
+		self.figure_canvas.trigger_order_extraction("single")
+		
 	@pyqtSlot()
 	def gui_save_all_orders_to_fit(self):
-		pass
-		QtYetiLogger(QT_YETI.WARNING,"gui_save_all_orders_to_fit() triggered. No action.")
+		QtYetiLogger(QT_YETI.WARNING,f"gui_save_current_order_to_fit(\"all\") triggered.")
+		self.figure_canvas.trigger_order_extraction("all")
 
 	@pyqtSlot()
 	def gui_set_order_index(self):
-		self.current_order_spinbox.setValue( self.figure_canvas.update_spectrum( self.current_order_spinbox.value() ) )
+		self.current_order_spinbox.setValue( self.figure_canvas.update_spectrum( self.current_order_spinbox.value() -1) +1)
 
 class SpectrometerSettings(QWidget):
 

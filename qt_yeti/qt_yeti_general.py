@@ -70,6 +70,8 @@ class QtYetiSettings:
 		self.WARNING = 1
 		self.ERROR = -1
 
+		self.ANNOTATION_X_COORDINATE = 42
+
 	def readHardwareConfig(self):
 		try:
 			config = configparser.SafeConfigParser()
@@ -132,6 +134,7 @@ class QtYetiSettings:
 			config.set("HARDWARE.Detector","DetectorPixelBinning",f"{self.DETECTOR_PIXEL_BINNING}")
 			config.set("HARDWARE.Detector","DetectorSpotSizePixels",f"{self.DETECTOR_SPOT_SIZE_PX}")
 			config.set("HARDWARE.Detector","DetectorBitDepth",f"{self.DETECTOR_BIT_DEPTH}")
+			config.set("HARDWARE.Detector","DetectorOrderNumberMagnitudeIncreaseDirection",f"{self.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION}")
 			
 			with open(QT_YETI.SETTINGS_INI_PATH, 'w') as configfile:
 				config.write(configfile)
@@ -150,9 +153,7 @@ class QtYetiSettings:
 		...
 
 
-"""
-Initialize Class for settings
-"""
+""" Initialize Class for settings """
 QT_YETI = QtYetiSettings()
 
 #%%
@@ -165,17 +166,18 @@ def qt_yeti_suppress_qt_warnings():
 	environ["QT_SCALE_FACTOR"] = "1"
 
 class YetiColors:
-	BLUE="#1864ab"
-	RED="#c92a2a"
-	GREEN="#2b8a3e"
-	GREENISH = "#0b7285"
-	ORANGE="#e67700"
-	YELLOW="#dddd00"
+	BLUE="#1864AB"
+	RED="#B92A2A"
+	GREEN="#2B8A3E"
+	GREENISH = "#0B7285"
+	ORANGE="#E67700"
+	YELLOW="#DDDD00"
 	MIDAS_GREEN="#00AA00"
+	YETI_WHITE = "#DDDDDD"
 
 # https://stackoverflow.com/questions/287871/how-do-i-print-colored-text-to-the-terminal
 # Check also module: colorama
-class bcolors:
+class ShellColors:
 	HEADER = '\033[95m'
 	OKBLUE = '\033[94m'
 	OKCYAN = '\033[96m'
@@ -199,13 +201,13 @@ def elapsed_time(timed_function: object):
 		dt = end_time-start_time
 		dt_color = ""
 		if ((0.3 <= dt) and (dt <= 0.5)):
-			dt_color = bcolors.WARNING
+			dt_color = ShellColors.WARNING
 		elif(dt < 0.3):
-			dt_color = bcolors.OKGREEN
+			dt_color = ShellColors.OKGREEN
 		else:
-			dt_color = bcolors.FAIL
+			dt_color = ShellColors.FAIL
 
-		timing_string = f"\t{bcolors.OKCYAN}Elapsed time of {tmd_func_str}(): {bcolors.BOLD}{dt_color}{(dt):.6f} s.{bcolors.ENDC}"
+		timing_string = f"\t{ShellColors.OKCYAN}Elapsed time of {tmd_func_str}(): {ShellColors.BOLD}{dt_color}{(dt):.6f} s.{ShellColors.ENDC}"
 		print(timing_string)
 		
 		return return_value
@@ -250,6 +252,7 @@ class TabYeti(QWidget):
 		self.layout.setAlignment(Qt.AlignCenter)
 
 		self.layout.addStretch()
+		self.layout.addWidget(QLabel("<i>We lit the streets but we cut off the magesty of the heavens.</i> - Joe Rogan (2024)"))
 		self.layout.addWidget(self.yetis_image)
 		self.layout.addWidget(QLabel("Yeti is a cute hamster sleeping during daytime and investigating at night."))
 		self.layout.addStretch()

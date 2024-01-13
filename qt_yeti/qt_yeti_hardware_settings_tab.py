@@ -1,4 +1,6 @@
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import *
+from PyQt5.QtGui import QCloseEvent
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
@@ -6,6 +8,8 @@ from dataclasses import dataclass
 
 import sys
 import os
+
+from PyQt5.QtWidgets import QWidget
 
 from qt_yeti.qt_yeti_general import *
 from qt_yeti.qt_yeti_functions import *
@@ -25,6 +29,8 @@ class TabHardwareSettings(QWidget):
 		self.customizeTab()
 		
 		self.read_settings_data()
+
+		self.FloatingWindow = None
 
 	def setupTabStructure(self):
 		# Top Level Tab layout
@@ -70,6 +76,7 @@ class TabHardwareSettings(QWidget):
 		#
 		self.action_read_button = QPushButton("&Read Config")
 		self.action_save_button = QPushButton("&Save Config")
+		self.action_float_button = QPushButton("&Open Floating Window")
 
 		# Add to form
 		lines = [QFrame(),QFrame(),QFrame(),QFrame()]
@@ -95,10 +102,12 @@ class TabHardwareSettings(QWidget):
 		self.hardware_form_layout.addRow(self.detector_spot_size_px, QLabel("Detector: Light Source Spot Size (px)"))
 		self.hardware_form_layout.addRow(lines[1])
 		self.hardware_form_layout.addRow(self.action_read_button, self.action_save_button)
+		self.hardware_form_layout.addRow(self.action_float_button)
 
 		# Signals / Slots
 		self.action_read_button.clicked.connect(self.read_settings_data)
 		self.action_save_button.clicked.connect(self.save_settings_data)
+		self.action_float_button.clicked.connect(self.open_floating_window)
 
 	def read_settings_data(self):
 		try:
@@ -142,7 +151,46 @@ class TabHardwareSettings(QWidget):
 		try:
 			_ = QT_YETI.writeHardwareConfig()
 			QtYetiLogger(QT_YETI.MESSAGE,f"Hardware settings saved.",True)
+			
 		except ValueError:
 			QtYetiLogger(QT_YETI.ERROR,f"Failed to save hardware settings. {ValueError.name}",True)
 
+	def open_floating_window(self):
+		self.FloatingWindow = FloatingHardwareSettingsWindow(self, self.control_panel, self.tab_layout)
 
+class FloatingHardwareSettingsWindow(QWidget):
+	def __init__(self, parent: TabHardwareSettings, widget: QWidget, original_container_layout: QLayout) -> None:
+		super(FloatingHardwareSettingsWindow, self).__init__(parent=None)
+	
+		self.setWindowTitle("Floating Hardware")
+		#self.resize(400,800)
+		#self.setWindowFlags(Qt.WindowStaysOnTopHint)
+		self.setWindowIcon(QIcon(QT_YETI.IMAGE_PATH))
+
+		self.window_layout = QVBoxLayout()
+		self.setLayout(self.window_layout)
+
+		self.parent = parent
+		self.loaded_widget = widget
+		self.original_container_layout = original_container_layout
+
+		QtYetiLogger(QT_YETI.MESSAGE,f"Floating Hardware Settings Window opened")
+
+		self.show()
+
+	def __del__(self):
+		QtYetiLogger(QT_YETI.MESSAGE,f"Floating Hardware Settings Window closed")
+	
+	def show(self):
+
+		# Grab the widget
+
+		self.window_layout.addWidget(self.loaded_widget)
+
+		super(FloatingHardwareSettingsWindow, self).show()
+
+	def closeEvent(self, event: QCloseEvent) -> None:
+		# Give the widget back
+		self.original_container_layout.addWidget(self.loaded_widget)
+		self.parent.FloatingWindow = None
+		super(FloatingHardwareSettingsWindow, self).closeEvent(event)

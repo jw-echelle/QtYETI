@@ -21,10 +21,11 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 from matplotlib.figure import Figure
 #print(plt.rcParams.keys())
 
+from scipy.optimize import curve_fit
+
 #%%
 ###############################################################################################################################
 
-#%%
 class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 
 	def __init__(self, parent=None, width=QT_YETI.MATPLOTLIB_CANVAS_WIDTH, height=QT_YETI.MATPLOTLIB_CANVAS_HEIGHT, dpi=QT_YETI.MATPLOTLIB_DPI):
@@ -60,35 +61,32 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		self.scale_type = "linear"
 
 		# Axes
-
-		#self.axes = control_figure.add_subplot(111)
-		self.axes_flat_field = plt.subplot2grid((8,8),(0,1),colspan=7, rowspan = 7, fig=self.control_figure, label="Flatfield_Image")
-		self.axes_flat_rows = plt.subplot2grid((8,8),(0,0), colspan=1, rowspan = 7, fig=self.control_figure, label="Y-Profile")
-		self.axes_flat_cols = plt.subplot2grid((8,8),(7,1), colspan=7, rowspan = 1, fig=self.control_figure, label="X-Profile")
+		self.axes_spectrogram = plt.subplot2grid((8,8),(0,1),colspan=7, rowspan = 7, fig=self.control_figure, label="Flatfield_Image")
+		self.axes_row_profile = plt.subplot2grid((8,8),(0,0), colspan=1, rowspan = 7, fig=self.control_figure, label="Y-Profile")
+		self.axes_col_profile = plt.subplot2grid((8,8),(7,1), colspan=7, rowspan = 1, fig=self.control_figure, label="X-Profile")
 		
-		self.axes_flat_field.axes.xaxis.set_visible(False)
-		self.axes_flat_field.axes.yaxis.set_visible(False)
-		self.axes_flat_rows.axes.xaxis.set_visible(False)
-		self.axes_flat_rows.axes.yaxis.set_visible(False)
-		self.axes_flat_cols.axes.xaxis.set_visible(False)
-		self.axes_flat_cols.axes.yaxis.set_visible(False)
+		self.axes_spectrogram.axes.xaxis.set_visible(False)
+		self.axes_spectrogram.axes.yaxis.set_visible(False)
+		self.axes_row_profile.axes.xaxis.set_visible(False)
+		self.axes_row_profile.axes.yaxis.set_visible(False)
+		self.axes_col_profile.axes.xaxis.set_visible(False)
+		self.axes_col_profile.axes.yaxis.set_visible(False)
 
-		origin_x, origin_y = (int(0.5*QT_YETI.DETECTOR_X_PIXELS), int(0.5*QT_YETI.DETECTOR_Y_PIXELS))
-
-		self.line_indicator_ff = self.axes_flat_field.axvline(origin_x, color='r', linewidth=0.5, alpha=0.75, label='0_z_ff_line_indicator')
-		self.dot_indicator_ff, = self.axes_flat_field.plot(origin_x, origin_y,color='gold', marker='.', markersize=2, label='1_ff_d0t_indicator')
-		self.line_indicator_yp = self.axes_flat_rows.axhline(origin_y,color='b', linewidth=0.5, alpha=0.75)
-		self.dot_indicator_yp, = self.axes_flat_rows.plot(0,origin_y,'b.', markersize=3)
-
-		self.spectrogram_plot = self.axes_flat_field.imshow(self.CurrentSpectrogram.data, vmin=self.CurrentSpectrogram.intmin, vmax=self.CurrentSpectrogram.intmax,\
+		self.spectrogram_plot = self.axes_spectrogram.imshow(self.CurrentSpectrogram.data, vmin=self.CurrentSpectrogram.intmin, vmax=self.CurrentSpectrogram.intmax,\
 					cmap = 'afmhot', interpolation='none', extent=[0, self.CurrentSpectrogram.xsize-1, 0, self.CurrentSpectrogram.ysize-1],\
 					aspect='auto', label = "2D_Spectrogram")
 		# variable, = [variable] = command_returning_variable()[0]
-		[self.y_profile] = self.axes_flat_rows.plot(self.CurrentSpectrogram.data[:,0], self.CurrentSpectrogram.yrange, color = 'red', linewidth=0.25, label="y_profile")
-		[self.x_profile] = self.axes_flat_cols.plot(self.CurrentSpectrogram.xrange,	self.CurrentSpectrogram.data[0,:], color = 'blue', linewidth=0.25, label = "x_profile")
+		[self.y_profile] = self.axes_row_profile.plot(self.CurrentSpectrogram.data[:,0], self.CurrentSpectrogram.yrange, color = 'red', linewidth=0.25, label="y_profile")
+		[self.x_profile] = self.axes_col_profile.plot(self.CurrentSpectrogram.xrange,	self.CurrentSpectrogram.data[0,:], color = 'blue', linewidth=0.25, label = "x_profile")
+
+		origin_x, origin_y = (int(0.5*QT_YETI.DETECTOR_X_PIXELS), int(0.5*QT_YETI.DETECTOR_Y_PIXELS))
+		self.spectrogram_line_indicator = self.axes_spectrogram.axvline(origin_x, color='r', linewidth=0.5, alpha=0.75, label='0_z_ff_line_indicator')
+		self.spectrogram_dot_indicator, = self.axes_spectrogram.plot(origin_x, origin_y,color='gold', marker='.', markersize=2, label='1_ff_d0t_indicator')
+		self.row_profile_line_indicator = self.axes_row_profile.axhline(origin_y,color='b', linewidth=0.5, alpha=0.75)
+		self.row_profile_dot_indicator, = self.axes_row_profile.plot(0,origin_y,'b.', markersize=3)
 
 		# Text
-		self.axes_flat_field_text = self.axes_flat_field.text(transform=self.axes_flat_field.transAxes, ha='left', va='top', x=0.005, y=0.98, label="loaded_file_path", weight="bold", color="#AAAAAA", s=f"No data loaded.")
+		self.axes_spectrogram_text = self.axes_spectrogram.text(transform=self.axes_spectrogram.transAxes, ha='left', va='top', x=0.005, y=0.98, label="loaded_file_path", weight="bold", color="#AAAAAA", s=f"No data loaded.")
 
 		# Event handling
 		self.mpl_connect('button_release_event', self.canvas_key_or_mouse_event)
@@ -105,7 +103,7 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 	def canvas_key_or_mouse_event(self, event: matplotlib.backend_bases.Event):
 		print(type(event))
 		# include limits that event is inside the specific image axes
-		if(event.inaxes is not self.axes_flat_field):
+		if(event.inaxes is not self.axes_spectrogram):
 			return
 		
 		# Get mouse coordinates
@@ -131,7 +129,7 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		# Arrow key control
 		if( isinstance(event, matplotlib.backend_bases.KeyEvent) ):
 			#Move cursor via keypress
-			curr_x,curr_y = self.dot_indicator_ff.get_data()
+			curr_x,curr_y = self.spectrogram_dot_indicator.get_data()
 			if(   event.key == "up"):
 				curr_y= (curr_y + 1) % self.CurrentSpectrogram.ysize
 			elif( event.key == "down"):
@@ -164,9 +162,9 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 	# Plotting
 	def load_spectrogram(self, requested_filename = ""):
 		if(requested_filename == ""):
-			QtYetiLogger(-1,"No file name provided.")
-			return -1
-		QtYetiLogger(0,f"{requested_filename} loaded.")
+			QtYetiLogger(QT_YETI.ERROR,"No file name provided.")
+
+		QtYetiLogger(QT_YETI.MESSAGE,f"{requested_filename} loaded.")
 
 		# Update CurrentSpectrogram
 		int_min, int_max = self.CurrentSpectrogram.update_spectrogram(requested_filename)
@@ -179,22 +177,26 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		self.spectrogram_plot.set_extent([0, self.CurrentSpectrogram.xsize-1, 0, self.CurrentSpectrogram.ysize-1])
 		self.spectrogram_plot.set_clim(int_min, int_max)
 
-		self.axes_flat_field_text.set_text(f"{requested_filename}")
+		# Change text on spectrogram
+		self.axes_spectrogram_text.set_text(f"{requested_filename}")
 
 		self.draw_idle()
+		print(int_min, int_max)
 		return int_min, int_max
 
 	def update_intensities(self, int_min=0, int_max=1):
 		""" Set color / intensity limit """
 		self.spectrogram_plot.set_clim(vmin=int_min, vmax=int_max)
-		self.axes_flat_rows.set_xlim(int_min, int_max)
-		self.axes_flat_cols.set_ylim(int_min, int_max)
+		self.axes_row_profile.set_xlim(int_min, int_max)
+		self.axes_col_profile.set_ylim(int_min, int_max)
 
 		self.update_scale_type(self.scale_type, int_min, int_max)
 		self.draw_idle()
 
 	def update_scale_type(self, new_scale_type: str, int_min=0, int_max=1):
-		""" Set new scale type: choose between Linear and Logarithmic. """
+		"""
+		Set new scale type: choose between Linear and Logarithmic.
+		"""
 		new_normalization = None
 		if( (new_scale_type != None) and (int_max > int_min) ):
 			if( new_scale_type == "log"):
@@ -208,19 +210,19 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 			else:
 				return
 
-			self.axes_flat_rows.set_xscale(new_scale_type)
-			self.axes_flat_cols.set_yscale(new_scale_type)
 			self.scale_type = new_scale_type
+			self.axes_row_profile.set_xscale(new_scale_type)
+			self.axes_col_profile.set_yscale(new_scale_type)
 			self.spectrogram_plot.set_norm(new_normalization)
 			self.draw_idle()
 
 	def update_indicators(self, x=0, y=0, redraw=True):
 
-		self.line_indicator_ff.set_xdata(x)
-		self.dot_indicator_ff.set_data(x,y)
-		self.line_indicator_yp.set_ydata(y)
+		self.spectrogram_line_indicator.set_xdata(x)
+		self.spectrogram_dot_indicator.set_data(x,y)
+		self.row_profile_line_indicator.set_ydata(y)
 
-		self.dot_indicator_yp.set_data(self.CurrentSpectrogram.data[row(y, self.CurrentSpectrogram.ysize),x],y)
+		self.row_profile_dot_indicator.set_data(self.CurrentSpectrogram.data[row(y, self.CurrentSpectrogram.ysize),x],y)
 		if (redraw):
 			self.draw_idle()
 
@@ -238,12 +240,12 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		y_range_min = self.CurrentSpectrogram.yrange.min()
 
 		self.x_profile.set_data( x_range, data_slice_at_constant_y )
-		self.axes_flat_cols.set_xlim(x_range_min, x_range_max)
-		self.axes_flat_cols.set_ylim( data_slice_at_constant_y.min(), QT_YETI.MATPLOTLIB_XY_LIM_SCALE * data_slice_at_constant_y.max() )
+		self.axes_col_profile.set_xlim(x_range_min, x_range_max)
+		self.axes_col_profile.set_ylim( data_slice_at_constant_y.min(), QT_YETI.MATPLOTLIB_XY_LIM_SCALE * data_slice_at_constant_y.max() )
 		
 		self.y_profile.set_data( data_slice_at_constant_x , y_range) 
-		self.axes_flat_rows.set_xlim( data_slice_at_constant_x.min(), QT_YETI.MATPLOTLIB_XY_LIM_SCALE * data_slice_at_constant_x.max() )
-		self.axes_flat_rows.set_ylim( y_range_min,y_range_max)
+		self.axes_row_profile.set_xlim( data_slice_at_constant_x.min(), QT_YETI.MATPLOTLIB_XY_LIM_SCALE * data_slice_at_constant_x.max() )
+		self.axes_row_profile.set_ylim( y_range_min,y_range_max)
 
 		if (redraw):
 			self.draw_idle()
@@ -251,12 +253,12 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 	def update_order_centers_in_plot(self, x=0, redraw=True):
 		# Goal Draw dots along a line at a fixed jdx
 		# Get all objects in plot
-		delete_mpl_plt_object_by_label(self.axes_flat_field.lines,"orderdot")
-		delete_mpl_plt_object_by_label(self.axes_flat_field.texts,"orderdottext")
+		delete_mpl_plt_object_by_label(self.axes_spectrogram.lines,"orderdot")
+		delete_mpl_plt_object_by_label(self.axes_spectrogram.texts,"orderdottext")
 
 		for index,(dot_x, dot_y) in enumerate(self.CurrentSpectrogram.order_centers_list):
-			self.axes_flat_field.plot(dot_x, dot_y, color = "#00AA00", marker="s", fillstyle="none", markersize=5, markeredgewidth=0.7, label="orderdot")
-			self.axes_flat_field.text(dot_x+10, dot_y+0,f"Relative trace number {index}",fontsize=5,color="red",label="orderdottext")
+			self.axes_spectrogram.plot(dot_x, dot_y, color = "#00AA00", marker="s", fillstyle="none", markersize=5, markeredgewidth=0.7, label="orderdot")
+			self.axes_spectrogram.text(QT_YETI.ANNOTATION_X_COORDINATE, dot_y+0,f"Relative trace number {index+1}",fontsize=6,color=YetiColors.YETI_WHITE,label="orderdottext")
 		
 		if (redraw):
 			self.draw_idle()
@@ -288,7 +290,7 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		if( abs(clicked_x - x_position) > QT_YETI.DETECTOR_SPOT_SIZE_PX/4 ):
 			return
 
-		self.CurrentSpectrogram.insert_to_order_list(clicked_y)
+		self.CurrentSpectrogram.insert_to_order_centers_list(clicked_y)
 		
 	def pop_order_center(self, clicked_x: float, clicked_y: float):
 
@@ -308,19 +310,17 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		self.TracerSettings = ReceivedTracerSettings
 
 		if( not self.CurrentSpectrogram.order_centers_list ):
-			QtYetiLogger(-1,"Order centers list is empty. Nothing to trace.")
-			return -666
+			QtYetiLogger(QT_YETI.ERROR,"Order centers list is empty. Nothing to trace.")
 
-		delete_mpl_plt_object_by_label(self.axes_flat_field.lines, "fit_marker")
-		delete_mpl_plt_object_by_label(self.axes_flat_field.lines, "fit_line")
+		delete_mpl_plt_object_by_label(self.axes_spectrogram.lines, "fit_marker")
+		delete_mpl_plt_object_by_label(self.axes_spectrogram.lines, "fit_line")
 
 		# List of Order objects
 		order_list = []
-		order_fit_coefficients_list = []
 
 		DOWNSAMPLING_BY = 4
 		# Where the magic happens
-		x_y_series = echelle_order_tracer(self.CurrentSpectrogram, self.TracerSettings, downsampling_value = DOWNSAMPLING_BY)
+		x_y_series = echelle_order_tracer(self.CurrentSpectrogram, self.TracerSettings, downsampling_value = DOWNSAMPLING_BY, precision_mode=False, intensity_cut_off_value=500)
 
 		""" Experimental """
 		FIT_REDUCTION = False
@@ -333,8 +333,6 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 
 		#bounds = ([0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,0],[4,0,np.inf,np.inf,np.inf,np.inf,np.inf,np.inf])
 
-		QtYetiLogger(QT_YETI.ERROR, f"→→ Urgently implement correct top-to-bottom or bottom-to-top ordering of echelle orders for absolute_m calibration! .", True)
-
 		# Setup loop
 		current_order_number = 1.000
 
@@ -346,7 +344,7 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 			try:
 				# Fit the found points with a polynomial function
 				# To reduce the numerical values, the data arrays are divided by `fit_reduction_factor` and later corrected
-				fit_output, _ = scipy.optimize.curve_fit(echelle_order_fit_function, x_series / fit_reduction_factor, y_series / fit_reduction_factor)#, bounds=bounds)
+				fit_output, _ = curve_fit(echelle_order_fit_function, x_series / fit_reduction_factor, y_series / fit_reduction_factor)#, bounds=bounds)
 				if( FIT_REDUCTION ):
 					fit_output = fit_output * correction_array
 
@@ -354,22 +352,21 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 				x_stop = x_series[-1]
 				order_list.append( Order(number_m=current_order_number, x_range=np.arange(x_start, x_stop+1, 1), fit_parameters=fit_output) )
 
-				# Write the results
-				order_fit_coefficients_list.append([float(current_order_number), x_start, x_stop]+fit_output.tolist())
-
 				# Plotting
-				self.axes_flat_field.plot(x_series,y_series,'.', markersize=1, linewidth=1, color="#00AA00",label="fit_marker")
-				self.axes_flat_field.plot(x_series, echelle_order_fit_function(x_series, *fit_output),'-', linewidth=0.75, color="#00AA00", label="fit_line")
+				self.axes_spectrogram.plot(x_series,y_series,'.', markersize=1, linewidth=1, color="#00AA00",label="fit_marker")
+				self.axes_spectrogram.plot(x_series, echelle_order_fit_function(x_series, *fit_output),'-', linewidth=0.75, color="#00AA00", label="fit_line")
 				
 				current_order_number += 1.0
 
 			except Exception as Error:
-				QtYetiLogger(QT_YETI.ERROR, f"Error in Tracer: {Error}.", True)
+				# QtYetiLogger(QT_YETI.ERROR, f"Error in Tracer: {Error}.", True)
+				# QtYetiLogger(QT_YETI.ERROR,\
+				#  f"XSERIES = {x_series}\r\nYSERIES={y_series}"\
+				# )
 				pass
 
-		# Update lists and fit coefficients for all instances of the type "Spectrogram" via class methods
+		# Update list for all instances of the type "Spectrogram" via class methods
 		Spectrogram.update_order_list( order_list )
-		Spectrogram.update_order_fit_coefficients( order_fit_coefficients_list )
 
 		# Redraw after loop
 		self.draw_idle()
@@ -379,7 +376,7 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		Find all lines and dots and their indices created by the order tracer
 		return: list of tracer line indices
 		"""
-		all_lines = self.axes_flat_field.lines
+		all_lines = self.axes_spectrogram.lines
 		tracer_line_indices = []
 
 		# Find all fit dots and fit lines
@@ -396,21 +393,17 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 	def tracer_lines_set_visibility(self, visible=True):
 		
 		tracer_line_indices = self.tracer_find_lines_dots()
-		all_lines = self.axes_flat_field.lines
+		all_lines = self.axes_spectrogram.lines
 
 		for idx in tracer_line_indices:
 			all_lines[idx].set_visible(visible)
 		self.draw_idle()
 
-	def save_order_fit_coefficients(self, loaded_filename = ""):
-		self.CurrentSpectrogram.save_order_fit_coefficients(loaded_filename)
+	def save_order_information(self, loaded_filename = ""):
+		self.CurrentSpectrogram.save_order_information(loaded_filename)
 
-	def load_order_fit_coefficients(self, requested_filename = ""):
-		Spectrogram.load_order_fit_coefficients(requested_filename)
-
-	def update_order_fit_coefficients(self):
-		QtYetiLogger(QT_YETI.WARNING,f"Nothing updated.",True)
-	# 	Spectrogram.update_order_fit_coefficients(self.order_fit_coefficients_list)
+	def load_order_information(self, requested_filename = ""):
+		Spectrogram.load_order_information(requested_filename)
 
 # Tracer Window
 class TracerSettingWindow(QWidget):
@@ -433,8 +426,8 @@ class TracerSettingWindow(QWidget):
 		self.tracer_window_layout = QVBoxLayout()
 
 		self.first_absolute_order_box = YetiSpinBox()
-		self.abs_order_number_m_direction_down_btn = QRadioButton("Increasing |m| from top to bottom")
-		self.abs_order_number_m_direction_up_btn = QRadioButton("Increasing |m| from bottom to top")
+		self.abs_order_number_m_direction_down_btn = QRadioButton("Increasing |m| from top to bottom: TOP-DOWN")
+		self.abs_order_number_m_direction_up_btn = QRadioButton("Increasing |m| from bottom to top: BOTTOM-UP")
 
 		self.spotsize_box = YetiSpinBox()
 		self.image_slicer_box = QCheckBox()
@@ -523,8 +516,8 @@ class TracerSettingWindow(QWidget):
 		#	child.setRange(-1*qspinboxlimit, qspinboxlimit)
 
 		# Signals/Slots
-		self.abs_order_number_m_direction_down_btn.clicked.connect(lambda: QtYetiLogger(QT_YETI.MESSAGE, f"Order number |m| increases from TOP to BOTTOM."))
-		self.abs_order_number_m_direction_up_btn.clicked.connect(lambda: QtYetiLogger(QT_YETI.MESSAGE, f"Order number |m| increases from BOTTOM to TOP."))
+		self.abs_order_number_m_direction_down_btn.clicked.connect(self.update_current_settings)
+		self.abs_order_number_m_direction_up_btn.clicked.connect(self.update_current_settings)
 		self.save_settings_btn.clicked.connect(self.save_tracer_settings_to_file)
 		self.load_settings_btn.clicked.connect(self.load_tracer_settings_from_file)
 		self.trace_btn.clicked.connect(self.start_tracer)
@@ -538,7 +531,8 @@ class TracerSettingWindow(QWidget):
 
 	def update_controls(self):
 		"""
-		`TracerSettingsWindow.update_controls()`\n
+		`TracerSettingsWindow.update_controls()`
+
 		Method → update_controls()
 		--------------------------
 		Update all Qt buttons and boxes from the settings file
@@ -568,9 +562,11 @@ class TracerSettingWindow(QWidget):
 		self.smoothing_stiffness_box.setValue(		self.CurrentSettings.smoothing_stiffness)
 		self.smoothing_order_box.setValue(			self.CurrentSettings.smoothing_order)
 
+	@pyqtSlot()
 	def update_current_settings(self):
 		"""
-		`TracerSettingsWindow.update_current_settings()`\n
+		`TracerSettingsWindow.update_current_settings()`
+		
 		Method → update_current_settings()
 		--------------------------
 		Update CurrentSettings (TracerSettings) from Qt button and box inputs
@@ -583,11 +579,16 @@ class TracerSettingWindow(QWidget):
 		# Handle radio buttons
 		current_down_btn_value = self.abs_order_number_m_direction_down_btn.isChecked()
 		current_up_btn_value = self.abs_order_number_m_direction_up_btn.isChecked()
+
 		direction_value = ""
 		if   (current_down_btn_value is True) and (current_up_btn_value is False):
 			direction_value = "down"
+			QtYetiLogger(QT_YETI.MESSAGE, f"Order number |m| increases from top to bottom. Order sequence: TOP-DOWN.")
+
 		elif (current_down_btn_value is False) and (current_up_btn_value is True):
 			direction_value = "up"
+			QtYetiLogger(QT_YETI.MESSAGE, f"Order number |m| increases from bottom to top. Order sequence: BOTTOM-UP")
+
 		else:
 			QtYetiLogger(QT_YETI.ERROR, f"Direction was neither up nor down.", True)
 			raise ValueError(f"Unknown state for abs_order_number_m_direction: {self.abs_order_number_m_direction}. It has to be up or down. Please check {QT_YETI.SETTINGS_INI_PATH}")
@@ -650,7 +651,7 @@ class TabOrderTracer(QWidget):
 		self.setupTabStructure()
 		self.customizeTab()
 
-		self.flatfield_filename = ""
+		self.spectrogram_filename = ""
 
 		# for child in self.findChildren((QPushButton, QSpinBox)):
 		# 	child.setFocusPolicy(Qt.NoFocus)
@@ -776,8 +777,8 @@ class TabOrderTracer(QWidget):
 
 		self.action_load_spectrogram_btn.clicked.connect(self.gui_load_spectrogram_file)
 		self.action_open_tracer_btn.clicked.connect(self.TracerWindow.show)
-		self.action_save_coefficients_btn.clicked.connect(self.gui_save_order_fit_coefficients)
-		self.action_load_coefficients_btn.clicked.connect(self.gui_load_order_fit_coefficients)
+		self.action_save_coefficients_btn.clicked.connect(self.gui_save_order_information)
+		self.action_load_coefficients_btn.clicked.connect(self.gui_load_order_information)
 		self.action_free_0_btn.clicked.connect(self.gui_dummy_callback)
 		self.action_free_1_btn.clicked.connect(self.gui_dummy_callback)
 		self.action_free_2_btn.clicked.connect(self.gui_dummy_callback)
@@ -786,13 +787,13 @@ class TabOrderTracer(QWidget):
 	# Signals / Slots
 	@pyqtSlot()
 	def gui_load_spectrogram_file(self):
-		caption = "Select Flatfield File"
-		initial_filter="Fits files (*.fits)"
-		file_filter="Fits files (*.fits);; All files (*.*)"
+		caption = "Select spectrogram file"
+		initial_filter="Fits files (*.fit *.fits)"
+		file_filter="Fits files (*.fits *.fit);; All files (*.*)"
 		requested_filename, _  = QFileDialog.getOpenFileName(self, caption = caption, initialFilter=initial_filter, filter=file_filter)
 		if(requested_filename != ""):
 			int_min, int_max = self.figure_canvas.load_spectrogram(requested_filename)
-			self.flatfield_filename = requested_filename
+			self.spectrogram_filename = requested_filename
 			self.intensity_max.setValue(int_max)
 			self.intensity_min.setValue(int_min)
 			self.x_max.setValue(self.figure_canvas.CurrentSpectrogram.xsize-1)
@@ -828,25 +829,25 @@ class TabOrderTracer(QWidget):
 		y_max = self.y_max.value()
 		y_min = self.y_min.value()
 		if((x_min < x_max) | (y_min < y_max)):
-			self.figure_canvas.axes_flat_field.set_xlim(x_min, x_max)
-			self.figure_canvas.axes_flat_field.set_ylim(y_min, y_max)
-			self.figure_canvas.axes_flat_rows.set_ylim(y_min, y_max)
-			self.figure_canvas.axes_flat_cols.set_xlim(x_min, x_max)
+			self.figure_canvas.axes_spectrogram.set_xlim(x_min, x_max)
+			self.figure_canvas.axes_spectrogram.set_ylim(y_min, y_max)
+			self.figure_canvas.axes_row_profile.set_ylim(y_min, y_max)
+			self.figure_canvas.axes_col_profile.set_xlim(x_min, x_max)
 			self.figure_canvas.draw_idle()
 
 	@pyqtSlot()
-	def gui_save_order_fit_coefficients(self):
+	def gui_save_order_information(self):
 		QtYetiLogger(QT_YETI.MESSAGE,f"Entered Callbäck function",True)
-		self.figure_canvas.save_order_fit_coefficients(self.flatfield_filename)
+		self.figure_canvas.save_order_information(self.spectrogram_filename)
 
 	@pyqtSlot()
-	def gui_load_order_fit_coefficients(self):
-		caption="Select Fit Coefficient File"
-		initial_filter="Order Fit Coefficient Files (*.txt)"
-		file_filter="Order Fit Coefficient Files (*.txt);; All files (*.*)"
+	def gui_load_order_information(self):
+		caption="Select Order Information File"
+		initial_filter="Order Information Files (*.txt)"
+		file_filter="Order Information Files (*.txt);; All files (*.*)"
 		requested_filename, _  = QFileDialog.getOpenFileName(caption = caption, initialFilter=initial_filter, filter=file_filter)
 		if(requested_filename != ""):
-			self.figure_canvas.load_order_fit_coefficients(requested_filename)
+			self.figure_canvas.load_order_information(requested_filename)
 
 	@pyqtSlot()
 	def gui_dummy_callback(self):
