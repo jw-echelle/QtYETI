@@ -1,4 +1,3 @@
-from winreg import QueryInfoKey
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -7,9 +6,6 @@ from dataclasses import dataclass
 
 import sys
 import os
-
-from matplotlib import figure
-from zmq import SERVER
 
 from qt_yeti.qt_yeti_general import *
 #from qt_yeti.qt_yeti_functions import *
