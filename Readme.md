@@ -4,6 +4,8 @@ It is by no means professionally programmed.
 
 2023 Jakob Wierzbowski <jw.echelle@outlook.com>
 
+<a href="URL_REDIRECT" target="blank"><img align="center" src="Resources/QtYetiProgram.png" height="600" /></a>
+
 ### Disclaimer
 This program is in its beginning stages and is not yet able to do scientific reductions/calibrations/extractions.  
 Everything has been tested in a native python environment. Currently we have no experience using conda environments.
