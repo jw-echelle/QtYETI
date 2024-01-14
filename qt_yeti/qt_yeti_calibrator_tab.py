@@ -130,15 +130,12 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 			_ = self.update_spectrum(self.active_order_index)
 
 	# Plotting
-	def load_spectrogram(self, requested_filename = ""):
-		if(requested_filename == ""):
-			QtYetiLogger(QT_YETI.ERROR,"No file name provided.")
-			return
-		
-		QtYetiLogger(QT_YETI.MESSAGE,f"{requested_filename} loaded.")
+	def load_spectrogram(self, requested_filename, HeaderDataUnit: fits.PrimaryHDU | fits.ImageHDU = None):
+		if(requested_filename == None):
+			QtYetiLogger(QT_YETI.ERROR,"No file name object provided.")
 
 		# Update CurrentSpectrogram
-		int_min, int_max = self.CurrentSpectrogram.update_spectrogram(requested_filename)
+		int_min, int_max = self.CurrentSpectrogram.update_spectrogram(requested_filename, HeaderDataUnit)
 		sample_data = (self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[np.uint32(self.CurrentSpectrogram.ysize/2),:])
 
 		self.row_of_intensity_max, self.column_of_intensity_max = np.unravel_index(np.argmax(self.CurrentSpectrogram.data), self.CurrentSpectrogram.shape)
@@ -161,6 +158,8 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 
 		"""Experimental"""
 		self.calibration_help_plot.set_data(sample_data)
+		
+		QtYetiLogger(QT_YETI.MESSAGE,f"{requested_filename} loaded.")
 
 		self.draw_idle()
 
@@ -698,16 +697,23 @@ class TabCalibrator(QWidget):
 		file_filter="Fits files (*.fit *.fits);; All files (*.*)"
 		requested_filename, _  = QFileDialog.getOpenFileName(self, caption = caption, initialFilter=initial_filter, filter=file_filter)
 
-		if(requested_filename != ""):
-			int_min, int_max = self.figure_canvas.load_spectrogram(requested_filename)
-			self.spectrogram_filename = requested_filename
-			self.intensity_max.setValue(int_max)
-			self.intensity_min.setValue(int_min)
-			# self.x_max.setValue(self.figure_canvas.CurrentSpectrogram.xsize-1)
-			# self.y_max.setValue(self.figure_canvas.CurrentSpectrogram.ysize-1)
-			# self.x_min.setValue(0)
-			# self.y_min.setValue(0)
-			print(self.figure_canvas.CurrentSpectrogram)
+		if(requested_filename == ""):
+			return
+
+		CurrentHDU = qt_yeti_handle_fits_file(self, requested_filename)
+		if( CurrentHDU == None):
+			return
+		
+		int_min, int_max = self.figure_canvas.load_spectrogram( requested_filename, CurrentHDU )
+
+		self.spectrogram_filename = requested_filename
+		self.intensity_max.setValue(int_max)
+		self.intensity_min.setValue(int_min)
+		# self.x_max.setValue(self.figure_canvas.CurrentSpectrogram.xsize-1)
+		# self.y_max.setValue(self.figure_canvas.CurrentSpectrogram.ysize-1)
+		# self.x_min.setValue(0)
+		# self.y_min.setValue(0)
+		print(self.figure_canvas.CurrentSpectrogram)
 
 	@pyqtSlot()
 	def gui_update_spectrum(self):

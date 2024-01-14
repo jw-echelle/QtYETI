@@ -160,14 +160,12 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		self.draw_idle()
 
 	# Plotting
-	def load_spectrogram(self, requested_filename = ""):
-		if(requested_filename == ""):
-			QtYetiLogger(QT_YETI.ERROR,"No file name provided.")
-
-		QtYetiLogger(QT_YETI.MESSAGE,f"{requested_filename} loaded.")
+	def load_spectrogram(self, requested_filename, HeaderDataUnit: fits.PrimaryHDU | fits.ImageHDU = None):
+		if(requested_filename == None):
+			QtYetiLogger(QT_YETI.ERROR,"No file name object provided.")
 
 		# Update CurrentSpectrogram
-		int_min, int_max = self.CurrentSpectrogram.update_spectrogram(requested_filename)
+		int_min, int_max = self.CurrentSpectrogram.update_spectrogram(requested_filename, HeaderDataUnit)
 
 		self.row_of_intensity_max, self.column_of_intensity_max = np.unravel_index(np.argmax(self.CurrentSpectrogram.data), self.CurrentSpectrogram.shape)
 
@@ -178,10 +176,12 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		self.spectrogram_plot.set_clim(int_min, int_max)
 
 		# Change text on spectrogram
-		self.axes_spectrogram_text.set_text(f"{requested_filename}")
+		self.axes_spectrogram_text.set_text(f"{self.CurrentSpectrogram.filename}")
+
+		QtYetiLogger(QT_YETI.MESSAGE,f"{self.CurrentSpectrogram.filename} loaded.")
 
 		self.draw_idle()
-		print(int_min, int_max)
+
 		return int_min, int_max
 
 	def update_intensities(self, int_min=0, int_max=1):
@@ -789,18 +789,26 @@ class TabOrderTracer(QWidget):
 	def gui_load_spectrogram_file(self):
 		caption = "Select spectrogram file"
 		initial_filter="Fits files (*.fit *.fits)"
-		file_filter="Fits files (*.fits *.fit);; All files (*.*)"
+		file_filter="Fits files (*.fit *.fits);; All files (*.*)"
 		requested_filename, _  = QFileDialog.getOpenFileName(self, caption = caption, initialFilter=initial_filter, filter=file_filter)
-		if(requested_filename != ""):
-			int_min, int_max = self.figure_canvas.load_spectrogram(requested_filename)
-			self.spectrogram_filename = requested_filename
-			self.intensity_max.setValue(int_max)
-			self.intensity_min.setValue(int_min)
-			self.x_max.setValue(self.figure_canvas.CurrentSpectrogram.xsize-1)
-			self.y_max.setValue(self.figure_canvas.CurrentSpectrogram.ysize-1)
-			self.x_min.setValue(0)
-			self.y_min.setValue(0)
-			print(self.figure_canvas.CurrentSpectrogram)
+
+		if(requested_filename == ""):
+			return
+
+		CurrentHDU = qt_yeti_handle_fits_file(self, requested_filename)
+		if( CurrentHDU == None):
+			return
+		
+		int_min, int_max = self.figure_canvas.load_spectrogram( requested_filename, CurrentHDU )
+
+		self.spectrogram_filename = requested_filename
+		self.intensity_max.setValue(int_max)
+		self.intensity_min.setValue(int_min)
+		self.x_max.setValue(self.figure_canvas.CurrentSpectrogram.xsize-1)
+		self.y_max.setValue(self.figure_canvas.CurrentSpectrogram.ysize-1)
+		self.x_min.setValue(0)
+		self.y_min.setValue(0)
+		print(self.figure_canvas.CurrentSpectrogram)
 
 	@pyqtSlot()
 	def gui_intensity_changed(self):

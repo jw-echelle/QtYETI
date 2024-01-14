@@ -1,3 +1,5 @@
+from ast import Raise
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -6,6 +8,8 @@ from dataclasses import dataclass
 
 import sys
 import os
+
+from PyQt5.QtWidgets import QWidget
 
 from qt_yeti.qt_yeti_general import *
 #from qt_yeti.qt_yeti_functions import *
@@ -115,10 +119,11 @@ class Spectrogram:
 	# Auxilliary
 	order_centers_list = []
 
-	def __init__(self, filename):
+	def __init__(self, filename:str, HeaderDataUnit: fits.PrimaryHDU | fits.ImageHDU = None):
+
+		self.filename = None
 		self.header = 0
 		self.data = None
-		self.filename = filename
 		self.shape = 0
 		self.xsize = 0
 		self.ysize = 0
@@ -130,40 +135,70 @@ class Spectrogram:
 		self.image_sliced_traces_per_group = 0
 		self.image_sliced_trace_separation = 0
 		self.active_order_index = 0
-		self.update_spectrogram(self.filename)
+		
+		if((filename != "QtYeti.Sample") and (HeaderDataUnit == None)):
+			QtYetiLogger(QT_YETI.ERROR,f"Not sufficient data provided. Provide a proper filename and HDU. For sample data: filename = \"QtYeti.Sample\"")
+			raise TypeError(f"{__class__} cannot be instanciated.")
+
+		self.update_spectrogram(filename, HeaderDataUnit)
 
 	def __repr__(self) -> str:
 		return f"Spectrogram(filename={ShellColors.OKBLUE}{self.filename}{ShellColors.ENDC}, xsize = {self.xsize}, ysize = {self.ysize})"
 	
-	def _set_spectrogram_properties(self,spectrogram_data=None):
+	def _set_spectrogram_properties(self, spectrogram_data: np.ndarray):
 
-		self.data = np.asarray(spectrogram_data)
+		self.data = spectrogram_data
+
+		# Check for Multiple Images
+		if( len(self.data.shape) > 2):
+			# Multiple images available in data
+			self.data = spectrogram_data[0,:,:]
+
+			#### TODO #### 
+			# Implement N×(r,c) data
+			QtYetiLogger(QT_YETI.ERROR, ShellColors.WARNING\
+				+ f"Implementation Error: more than 1 Image per Header is not yet implemented."\
+				+ ShellColors.ENDC, True\
+			)
+
+		self.data_dtype = spectrogram_data.dtype # QtYetiLogger(QT_YETI.MESSAGE,f"→ → dtype = {self.data_dtype}", True)
 		self.shape = self.data.shape
 		self.ysize, self.xsize = self.shape
 		self.xrange = np.arange(self.xsize)
 		self.yrange = np.arange(self.ysize)
-		self.intmax = self.data.max().max()
-		self.intmin = self.data.min().min()
+		self.intmax = int(self.data.max().max())
+		self.intmin = int(self.data.min().min())
 		self.image_sliced = QT_YETI.SPECTROMETER_HAS_IMAGE_SLICER
 		self.image_sliced_traces_per_group = QT_YETI.SPECTROMETER_IMAGE_SLICER_TRACES_PER_ORDER
 		self.image_sliced_trace_separation = QT_YETI.SPECTROMETER_IMAGE_SLICER_SEPARATION_PX
 
-	def update_spectrogram(self, filename) -> Tuple[int, int]:
-		self.filename = filename
+	def set_filename(self, filename: str) -> None:
+		if( filename != ""):
+			self.filename = filename
+
+	def update_spectrogram(self, filename:str, CurrentHDU: fits.PrimaryHDU | fits.ImageHDU = None) -> Tuple[int, int]:
+
 		if(filename == "QtYeti.Sample"):
+			self.filename = filename
 			self._set_spectrogram_properties( np.abs(np.random.randn(QT_YETI.DETECTOR_Y_PIXELS, QT_YETI.DETECTOR_X_PIXELS)) )
 			return self.intmin, self.intmax
 
+		if((filename != "QtYeti.Sample") and (CurrentHDU == None)):
+			QtYetiLogger(QT_YETI.ERROR,f"Not sufficient data provided. Provide a proper filename and HDU. For sample data: filename = \"QtYeti.Sample\"")
+			raise ValueError(f"Not sufficient data provided. Provide a proper filename and HDU. For sample data: filename = \"QtYeti.Sample\"")
+
+		self.filename = filename
+
 		try:
-			# Improve FITS import. Let user choose the part of the file that needs to be read
-			# image slice should be loaded from config or from header
+			# This is not working, as we close the file in another context.
+			#self.filename = CurrentHDU.fileinfo()["file"].name
+	
+			self.header = CurrentHDU.header
+			# self.header.strip() → https://docs.astropy.org/en/stable/io/fits/api/headers.html
 
-			# Get primary header
-			self.header = fits.getheader(self.filename)
-
-			# Check if spectrogram is loaded
-			if( self.header["NAXIS"] == 2):
-				self._set_spectrogram_properties(np.asarray(fits.getdata(self.filename), dtype=np.int64))
+			# Check the size of the data
+			if( self.header["NAXIS"] >= 2):
+				self._set_spectrogram_properties( CurrentHDU.data )
 				self.intmin, self.intmax = self.find_mean_minmax()
 
 			else:
@@ -171,7 +206,7 @@ class Spectrogram:
 				self.update_spectrogram("QtYeti.Sample")
 
 		except Exception as error:
-			QtYetiLogger(QT_YETI.ERROR,f"{error}")
+			QtYetiLogger(QT_YETI.ERROR,f"{error}", True)
 
 		return self.intmin, self.intmax
 
@@ -470,6 +505,56 @@ class OrderTracerSettings:
 		# Update QT_YETI.SETTINGS
 		QT_YETI.readHardwareConfig() 
 
+def qt_yeti_handle_fits_file(Gui_QtObject: QWidget, requested_filename: str) -> Tuple[fits.PrimaryHDU | fits.ImageHDU | None]:
+	"""
+	Open more complex FITS files.
+
+	### Details
+
+	Open the FITS file and check the len() of the HDUList
+	If len() > 1, open Dialoge with items to choose from.
+	Return the selected Header Data Unit (hdu)
+
+	#### Parameters:
+		`QtObject` (QWidget): Calling class
+		`requested_filename` (str): filename of the FITS file
+
+	#### Returns:
+		`fits.PrimaryHDU | fits.ImageHDU | None`: Returning a ``.copy()`` PrimaryHDU or ImageHDU with image data is returned, or `None`
+	"""	
+	# Iterable object for HDU List evaluation { "key": value }
+	hdu_dictionary = {}
+
+	CurrentHDU = None
+
+	with fits.open(requested_filename, mode="readonly") as CurrentHDUList:
+	
+		# Check how many Headers and Data Units are stored in the file
+		if( len(CurrentHDUList) > 1):
+		
+			# Loop over list entries and grab data for the input dialog
+			for index, HDU in enumerate(CurrentHDUList):
+				# CurrentHDUList[i]._summary()
+				# CurrentHDUList[i].__class__.__name__, CurrentHDUList[0].name,CurrentHDUList[0].shape,len(CurrentHDUList[0].header)
+				hdu_name, hdu_version, hdu_type, hdu_cards, hdu_dimensions, hdr_format, *hdr_remaining = HDU._summary()
+
+				if(( hdu_type == "PrimaryHDU") or (hdu_type == "ImageHDU")):
+					item_name = f"{index+1} - {hdu_type}\t| Name:{hdu_name}\t\t| Data size {hdu_dimensions}"
+					hdu_dictionary[item_name] = index
+
+			selected_item, answer = QInputDialog().getItem(Gui_QtObject,"Multiple HDUs found","Choose an HDU List Item (PrimaryHDU | ImageHDU). Tables are excluded from the view.", hdu_dictionary , 0, False)
+
+			if( answer ):
+				_CurrentHDU = CurrentHDUList[hdu_dictionary[selected_item]]
+				CurrentHDU = _CurrentHDU.copy()
+
+		# Forward Primary HDU
+		else:
+			_CurrentHDU = CurrentHDUList[0]
+			CurrentHDU = _CurrentHDU.copy()
+
+	print(CurrentHDU.fileinfo())
+	return CurrentHDU
 #%% Tab Abstract classes 
 ###############################################################################################################################
 """
