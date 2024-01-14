@@ -4,7 +4,7 @@ It is by no means professionally programmed.
 
 2023 Jakob Wierzbowski <jw.echelle@outlook.com>
 
-<a href="URL_REDIRECT" target="blank"><img align="center" src="Resources/QtYetiProgram.png" height="600" /></a>
+<a href="Resources/QtYetiProgram.png" target="blank"><img align="center" src="Resources/QtYetiProgram.png" height="400" /></a>
 
 ### Disclaimer
 This program is in its beginning stages and is not yet able to do scientific reductions/calibrations/extractions.  
@@ -33,4 +33,4 @@ pyqt5
 • Ubuntu Linux 22.04  
 
 #### Yeti
-<a href="URL_REDIRECT" target="blank"><img align="center" src="qt_yeti/yeti.png" height="256" /></a>
+<a href="qt_yeti/yeti.png" target="blank"><img align="center" src="qt_yeti/yeti.png" height="256" /></a>
