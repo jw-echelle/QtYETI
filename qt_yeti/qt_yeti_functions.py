@@ -553,7 +553,6 @@ def qt_yeti_handle_fits_file(Gui_QtObject: QWidget, requested_filename: str) -> 
 			_CurrentHDU = CurrentHDUList[0]
 			CurrentHDU = _CurrentHDU.copy()
 
-	print(CurrentHDU.fileinfo())
 	return CurrentHDU
 #%% Tab Abstract classes 
 ###############################################################################################################################
