@@ -43,6 +43,7 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 		# Setup sample spectrogram		
 		self.CurrentSpectrogram = Spectrogram("QtYeti.Sample")
 		self.active_order_index = 0
+		self.summation_method = "simple_sum"
 
 		# Setup all plots and callbacks
 		self.setup_plots()
@@ -303,18 +304,21 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 			QtYetiLogger(QT_YETI.ERROR,"Nearest Order not found. Returning np.NAN.")
 			return np.NAN
 
-	def trigger_order_extraction( self, mode:str ) -> None:
+	def trigger_order_extraction( self, extraction_mode:str ) -> None:
 		"""
 		Trigger order extraction
 		### Details
 		This method extracts either one selected order into a FITs file or loops over all orders to generate one file per order.
 		#### Parameters:
-			`mode` (str): Extraction mode: `"single"` for extracting the current order and `"all"` for looping over all orders
+			`extraction_mode` (str): Extraction mode: `"single"` for extracting the current order and `"all"` for looping over all orders
 		"""
 		# Check if orders are available
 		if(Spectrogram.order_list):
 			
-			echelle_order_spectrum_to_fits(self.CurrentSpectrogram, extraction_mode=mode, order_index=self.active_order_index, single_trace_mode=False)
+			echelle_order_spectrum_to_fits(self.CurrentSpectrogram,\
+				extraction_mode=extraction_mode, summation_method=self.summation_method,\
+				order_index=self.active_order_index, single_trace_mode=False \
+			)
 
 		else:
 			QtYetiLogger(QT_YETI.ERROR,f"No Fit Coefficients / Orders loaded.")
@@ -637,6 +641,14 @@ class TabCalibrator(QWidget):
 		self.intensity_control_layout.addWidget(QLabel("Intensity minimum"))
 		self.intensity_control_layout.addWidget(self.log_scale_chkbx)
 
+		# ItemBoxes
+		self.summation_method_box = QComboBox()
+		self.summation_method_box.addItems(QT_YETI.SUMMATIONS)
+		self.summation_method_box.currentTextChanged.connect(self.gui_update_summation)
+		# self.summation_method_box.setEditable(True)
+		# self.summation_method_box.lineEdit().setAlignment(Qt.AlignCenter)
+		# self.summation_method_box.lineEdit().setReadOnly(True)
+
 		# Create Buttons
 		self.action_load_spectrogram_btn	= QPushButton(text="Load Spectrogram", clicked=self.gui_load_spectrogram_file)
 		self.action_load_coefficients_btn	= QPushButton(text="Load Order Information", clicked=self.gui_load_order_information)
@@ -648,9 +660,10 @@ class TabCalibrator(QWidget):
 		self.control_panel_layout.addWidget(self.current_order_box,0,1)
 		self.control_panel_layout.addWidget(self.action_load_spectrogram_btn,0,2)
 		self.control_panel_layout.addWidget(self.action_load_coefficients_btn,0,3)
-		self.control_panel_layout.addWidget(self.action_load_geo_calibrator_btn,0,4)
+		self.control_panel_layout.addWidget(self.summation_method_box,0,4)
 		self.control_panel_layout.addWidget(self.action_save_currentorder_btn,0,5)
 		self.control_panel_layout.addWidget(self.action_save_allorders_btn,0,6)
+		self.control_panel_layout.addWidget(self.action_load_geo_calibrator_btn,0,7)
 
 		# Widths and limits
 		self.intensity_max.setValue(np.int32(self.figure_canvas.CurrentSpectrogram.intmax))
@@ -724,7 +737,7 @@ class TabCalibrator(QWidget):
 	def gui_intensity_changed(self):
 		max = self.intensity_max.value()
 		min = self.intensity_min.value()
-		QtYetiLogger(QT_YETI.MESSAGE,f"New Intensity Range: {min,max}",True)
+		#### REMOVE #### QtYetiLogger(QT_YETI.MESSAGE,f"New Intensity Range: {min,max}",True)
 		if( min < max):
 			self.figure_canvas.update_intensities(min, max)
 
@@ -775,6 +788,9 @@ class TabCalibrator(QWidget):
 	@pyqtSlot()
 	def gui_set_order_index(self):
 		self.current_order_spinbox.setValue( self.figure_canvas.update_spectrum( self.current_order_spinbox.value() -1) +1)
+
+	def gui_update_summation(self, new_item_string: str):
+		self.figure_canvas.summation_method = QT_YETI.SUMMATIONS[new_item_string]
 
 	@pyqtSlot()
 	def gui_open_geometric_calibrator(self):

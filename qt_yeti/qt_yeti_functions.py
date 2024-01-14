@@ -1042,10 +1042,14 @@ def echelle_find_orders( CurrentSpectrogram: Spectrogram = None, x_position = 0,
 	Format [Order, X Position, Y Position]
 	These positions are saved in CurrentSpectrogram
 
-	Parameters:
-		CurrentSpectrogram (Spectrogram, optional): _description_. Defaults to None.
-		x_position (int, optional): _description_. Defaults to 0.
-		TracerSettings (OrderTracerSettings, optional): _description_. Defaults to None.
+	### Details
+	The 2D Echelle spectrogram is cut along the `y` axis = rows and smoothed after taking the logarithm.
+	With `scipy.signal.find_peaks` the function searches for peaks along the path that correspond to the different Echelle orders/traces.
+
+	#### Parameters:
+		`CurrentSpectrogram` (Spectrogram, optional): _description_. Defaults to None.
+		`x_position` (int, optional): _description_. Defaults to 0.
+		`TracerSettings` (OrderTracerSettings, optional): _description_. Defaults to None.
 	"""
 
 	if( CurrentSpectrogram == None):
@@ -1066,6 +1070,8 @@ def echelle_find_orders( CurrentSpectrogram: Spectrogram = None, x_position = 0,
 	SMOOTHING_STIFFNESS = TracerSettings.smoothing_stiffness
 	SMOOTHING_ORDER = TracerSettings.smoothing_order
 
+	HACK_ARTIFICIAL_OFFSET = -0.01
+
 	# Systematic approach:
 	# Enhance the visibility for darker peaks via np.log10()
 	# Use the Whittaker smoothing to preserve the peak structures and reduce the noise
@@ -1073,11 +1079,13 @@ def echelle_find_orders( CurrentSpectrogram: Spectrogram = None, x_position = 0,
 	# Use percentage values to decide about prominence and minimum height to find peaks
 	current_spectrum = np.squeeze(np.abs(CurrentSpectrogram.data[:,mat_col]))
 
-	#### Hack ####
+	#### HACK ####
 	QtYetiLogger(QT_YETI.WARNING, f"Adding artificial offset as a hack for DARKFIELD corrected spectra.", True)
-	current_spectrum += 0
+	current_spectrum = current_spectrum.astype(np.float64) + HACK_ARTIFICIAL_OFFSET
 
-	current_spectrum_log10_sm = whittaker_smooth( np.log10(current_spectrum), SMOOTHING_STIFFNESS, SMOOTHING_ORDER )
+	# current_spectrum_log10 = np.nan_to_num( np.log10(np.abs(current_spectrum)) , nan=0)
+	current_spectrum_log10 = np.log10(np.abs(current_spectrum))
+	current_spectrum_log10_sm = whittaker_smooth( current_spectrum_log10, SMOOTHING_STIFFNESS, SMOOTHING_ORDER )
 	current_min_max_delta = current_spectrum_log10_sm.max() - current_spectrum_log10_sm.min()
 	current_spectrum_log10_sm_norm = (current_spectrum_log10_sm - current_spectrum_log10_sm.min())/current_min_max_delta
 
@@ -1383,7 +1391,7 @@ def echelle_trace_size_check(active_order_x_range: np.ndarray, current_spectrogr
 	# Or do nothing
 	return active_order_x_range
 
-@elapsed_time
+#@elapsed_time
 def echelle_trace_quick_plot(CurrentSpectrogram: Spectrogram, order_index: int,  resulting_abs_m:list=None) -> Tuple[range, np.ndarray]:
 	"""
 	Simple extraction routine for a specific trace/order index.
@@ -1416,8 +1424,8 @@ def echelle_trace_quick_plot(CurrentSpectrogram: Spectrogram, order_index: int, 
 	# Extract the spectrum along the trace polynomial
 	return checked_x_range , CurrentSpectrogram.data[discretized_rows,checked_x_range]
 
-@elapsed_time
-def echelle_trace_optimal_extraction(CurrentSpectrogram: Spectrogram, order_index: int, extraction_method: str = None, single_trace_mode:bool = False) -> Tuple[range, np.ndarray]:
+#@elapsed_time
+def echelle_trace_optimal_extraction(CurrentSpectrogram: Spectrogram, order_index: int, summation_method: str = None, single_trace_mode:bool = False) -> Tuple[range, np.ndarray]:
 	"""
 	• Brute force summation for image slicers and regular echelles
 	
@@ -1426,8 +1434,8 @@ def echelle_trace_optimal_extraction(CurrentSpectrogram: Spectrogram, order_inde
 	#### Parameters:
 		`CurrentSpectrogram` (Spectrogram): Spectrogram used for data extraction
 		`order_index` (int): Index of the main trace of an echelle order.
-		`extraction_method` (str, optional): _description_. Defaults to None.
-		The extraction method decides on how we extract the spectrogram orders\r\n
+		`extraction_mode` (str, optional): _description_. Defaults to None.
+		The extraction mode decides on how we extract the spectrogram orders\r\n
 		• "None" and "order_center_pixel" will only extract along the polynomial fit\r\n
 		• "simple_sum" will extract an order by simply summing over an order trace as wide as the spot or slit size\r\n
 		• "sqrt_weighted_sum" will extract an order by weighting the signal of every pixel row by 1/sqrt and summing over an order trace as wide as the spot or slit size\r\n
@@ -1440,11 +1448,11 @@ def echelle_trace_optimal_extraction(CurrentSpectrogram: Spectrogram, order_inde
 		Extracted data is a tuple consisting of the x_range (range) and the spectrum/trace (np.ndarray),
 		the matrix of extraced rows (np.ndarray), the matrix of extracted columns (np.ndarray)
 	"""
-	if ( extraction_method ):
-		extraction_method.lower()
+	if (summation_method):
+		summation_method.lower()
 	
 	if (single_trace_mode == True):
-		extraction_method = "order_center_pixel"
+		summation_method = "order_center_pixel"
 		QtYetiLogger(QT_YETI.WARNING,\
 			ShellColors.WARNING + f"Using SINGLE_TRACE_MODE = True. The extraction method is \"ORDER_CENTER_PIXEL\". Not all available data is extracted." + ShellColors.ENDC,\
 			True \
@@ -1488,7 +1496,7 @@ def echelle_trace_optimal_extraction(CurrentSpectrogram: Spectrogram, order_inde
 	extracted_matrix = np.zeros((number_of_rows, number_of_columns))
 
 	# Case for debugging / sanity checks
-	if ((extraction_method is None) or (extraction_method=="order_center_pixel")):
+	if ((summation_method is None) or (summation_method=="order_center_pixel")):
 		# Just extract along the trace
 		extraction_rows = discretized_rows
 		extraction_columns = checked_x_range
@@ -1496,7 +1504,7 @@ def echelle_trace_optimal_extraction(CurrentSpectrogram: Spectrogram, order_inde
 		return checked_x_range, extracted_spectral_data, extraction_rows, extraction_columns
 	
 	# Simple summation over all pixels without weights
-	elif extraction_method == "simple_sum":
+	elif summation_method == "simple_sum":
 		
 		"""Create indices for data extraction → extraced = data_matrix[ mat_rows, mat_columns]"""
 		# Starting point is 'discretized_rows' containing all row indices of a trace center
@@ -1529,7 +1537,7 @@ def echelle_trace_optimal_extraction(CurrentSpectrogram: Spectrogram, order_inde
 
 		return checked_x_range, extracted_spectral_data, extraction_rows, extraction_columns
 	
-	elif extraction_method == "sqrt_weighted_sum":
+	elif summation_method == "sqrt_weighted_sum":
 		# Sum over all rows with weighting
 		# create masking matrix ...
 		extraction_rows = discretized_rows # dummy variable
@@ -1537,15 +1545,15 @@ def echelle_trace_optimal_extraction(CurrentSpectrogram: Spectrogram, order_inde
 		extracted_spectral_data = extracted_matrix.sum(axis=0)
 		return checked_x_range, extracted_spectral_data, extraction_rows, extraction_columns
 	
-	elif extraction_method == "optimal":
+	elif summation_method == "optimal":
 		return checked_x_range, extracted_spectral_data
 	
 	else:
-		QtYetiLogger(QT_YETI.ERROR,f"Unknown extraction_method: {extraction_method}",True)
-		raise ValueError(f"Unknown extraction_method: {extraction_method}")
+		QtYetiLogger(QT_YETI.ERROR,f"Unknown extraction_method: {summation_method}",True)
+		raise ValueError(f"Unknown extraction_method: {summation_method}")
 
-@elapsed_time
-def echelle_order_spectrum_to_fits(CurrentSpectrogram: Spectrogram, extraction_mode:str, order_index:int = None, single_trace_mode:bool = False) -> None:
+#@elapsed_time
+def echelle_order_spectrum_to_fits(CurrentSpectrogram: Spectrogram, extraction_mode:str, summation_method: str, order_index:int = None, single_trace_mode:bool = False) -> None:
 	"""
 	Order extraction from Echelle spectra
 
@@ -1553,7 +1561,8 @@ def echelle_order_spectrum_to_fits(CurrentSpectrogram: Spectrogram, extraction_m
 	
 	#### Parameters:
 		`CurrentSpectrogram` (Spectrogram): Scientific data saved into the Spectrogram object
-		`extraction_mode` (str): can be `"all"` or `"single"`. In case of 'single', provide an `order_index`
+		`extraction_mode` (str): Can be `"all"` or `"single"`. In case of 'single', provide an `order_index`
+		`summation_method` (str): Has to be one out of the `QT_YETI.SUMMATION` dictionary
 		`order_index` (int, optional): Order of interest within the `Spectrogram.order_list[order_index]`, by default None
 		`single_trace_mode` (bool, optional): If `True` then there will be no summing over more than one trace.
 
@@ -1599,19 +1608,19 @@ def echelle_order_spectrum_to_fits(CurrentSpectrogram: Spectrogram, extraction_m
 
 	# Extract spectra
 	# =================== Please note: prepare for optimal extraction
-	x_range, extraced_spectrum, _ , _ = echelle_trace_optimal_extraction( CurrentSpectrogram, main_order_index, "simple_sum", single_trace_mode)
+	x_range, extraced_spectrum, _ , _ = echelle_trace_optimal_extraction( CurrentSpectrogram, main_order_index, summation_method, single_trace_mode)
 
 	order_number = sign_of_orders * order_number_array[main_order_index]
 
 	# Save the extracted spectrum to file
 	save_single_order_to_fits(CurrentSpectrogram.filename, CurrentSpectrogram.header, order_number, x_range, extraced_spectrum)
 
-def save_single_order_to_fits(filename: str, PreviousHeader: fits.HDUList, order_number:float, x_axis: np.ndarray, spectrum: np.ndarray):
+def save_single_order_to_fits(filename: str, PreviousHeader: fits.Header, order_number:float, x_axis: np.ndarray, spectrum: np.ndarray):
 	"""
 	File savinf of a single order (multiple traces per order)
 	#### Parameters:
 		`filename` (str): Filename of the loaded spectrogram
-		`PreviousHeader` (fits.HDUList): FITS header from the loaded file (Spectrogram Class variable `header`)
+		`PreviousHeader` (fits.Header): FITS header from the loaded file (Spectrogram Class variable `header`)
 		`order_number` (float): Order number for the 
 		`x_axis` (np.ndarray): _description_
 		`spectrum` (np.ndarray): _description_
@@ -1635,6 +1644,7 @@ def save_single_order_to_fits(filename: str, PreviousHeader: fits.HDUList, order
 	NewHeader.append(("ORDER",order_number,"Physical order m"), end=True)
 
 	PrimaryHDU = fits.PrimaryHDU( data=spectrum.astype(np.float64), header=NewHeader )
+	PrimaryHDU.add_checksum()
 
 	NewHDUList = fits.HDUList([PrimaryHDU])
 

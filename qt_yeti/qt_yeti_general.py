@@ -72,6 +72,18 @@ class QtYetiSettings:
 
 		self.ANNOTATION_X_COORDINATE = 42
 
+		self.SUMMATIONS = {\
+			"Simple Sum":"simple_sum",\
+			"On Trace Center":"order_center_pixel",\
+			"Square-root weighted":"sqrt_weighted_sum",\
+			"Optimal Extraction":"optimal"\
+		}
+
+		self.TRACING_MODES = {\
+			"Maximum": False,\
+			"Fitted": True\
+		}
+
 	def readHardwareConfig(self):
 		try:
 			config = configparser.SafeConfigParser()
@@ -225,7 +237,11 @@ class YetiSpinBox(QSpinBox):
 		self.setMaximum((2**31)-1)
 		self.setMinimum(-2**31)
 		self.setMinimumWidth(QT_YETI.SPIN_BOX_MIN_WIDTH)
-		
+
+class YetiComboBox(QComboBox):
+	def __init__(self, *args, **kwargs):
+		super(YetiComboBox,self).__init__(*args, **kwargs)
+		self.setMinimumWidth(QT_YETI.SPIN_BOX_MIN_WIDTH)
 
 class YetiDoubleSpinBox( QDoubleSpinBox ):
 	def __init__(self, *args, **kwargs):

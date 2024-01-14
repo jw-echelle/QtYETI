@@ -73,7 +73,7 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		self.axes_col_profile.axes.yaxis.set_visible(False)
 
 		self.spectrogram_plot = self.axes_spectrogram.imshow(self.CurrentSpectrogram.data, vmin=self.CurrentSpectrogram.intmin, vmax=self.CurrentSpectrogram.intmax,\
-					cmap = 'afmhot', interpolation='none', extent=[0, self.CurrentSpectrogram.xsize-1, 0, self.CurrentSpectrogram.ysize-1],\
+					cmap = 'pink', interpolation='none', extent=[0, self.CurrentSpectrogram.xsize-1, 0, self.CurrentSpectrogram.ysize-1],\
 					aspect='auto', label = "2D_Spectrogram")
 		# variable, = [variable] = command_returning_variable()[0]
 		[self.y_profile] = self.axes_row_profile.plot(self.CurrentSpectrogram.data[:,0], self.CurrentSpectrogram.yrange, color = 'red', linewidth=0.25, label="y_profile")
@@ -304,7 +304,7 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 
 	# Tracing
 	@elapsed_time
-	def tracer_start_tracing(self, ReceivedTracerSettings: OrderTracerSettings):
+	def tracer_start_tracing(self, ReceivedTracerSettings: OrderTracerSettings, precision_tracing_mode: bool = False):
 
 		# Trace an order and find its center positions
 		self.TracerSettings = ReceivedTracerSettings
@@ -320,7 +320,7 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 
 		DOWNSAMPLING_BY = 4
 		# Where the magic happens
-		x_y_series = echelle_order_tracer(self.CurrentSpectrogram, self.TracerSettings, downsampling_value = DOWNSAMPLING_BY, precision_mode=False, intensity_cut_off_value=500)
+		x_y_series = echelle_order_tracer(self.CurrentSpectrogram, self.TracerSettings, downsampling_value = DOWNSAMPLING_BY, precision_mode=precision_tracing_mode, intensity_cut_off_value=500)
 
 		""" Experimental """
 		FIT_REDUCTION = False
@@ -421,6 +421,8 @@ class TracerSettingWindow(QWidget):
 		self.canvas = MPLCanvas
 		self.CurrentSettings = -1
 		self.load_tracer_settings_from_file()
+		#### HACK #### → Include this into TracerSettings()
+		self.precision_tracing_mode = False 
 
 	def setup_tracer_window(self):
 		self.tracer_window_layout = QVBoxLayout()
@@ -438,6 +440,7 @@ class TracerSettingWindow(QWidget):
 		self.peak_height_box = YetiDoubleSpinBox()
 		self.peak_prominence_box = YetiDoubleSpinBox()
 		self.peak_width_box = YetiSpinBox()
+		self.tracing_mode_box = YetiComboBox()
 		self.smoothing_stiffness_box = YetiDoubleSpinBox()
 		self.smoothing_order_box = YetiSpinBox()
 		self.load_settings_btn = QPushButton("Load Settings")
@@ -446,6 +449,10 @@ class TracerSettingWindow(QWidget):
 		self.visible_traces = QCheckBox("View / Hide tracer lines")
 
 		self.abs_order_number_m_direction_down_btn.setChecked(True)
+		self.tracing_mode_box.addItems(QT_YETI.TRACING_MODES)
+		self.tracing_mode_box.setToolTip(\
+			f"Use <b>Maximum</b> for a fast but less precise trace maximum estimation for a given x position. Use <b>Fitted</b> for more precision (slower)."\
+		)
 
 		qspinboxlimit = (np.power(2,16)-1)
 		self.first_absolute_order_box.setRange(-1 * qspinboxlimit, qspinboxlimit)
@@ -493,6 +500,7 @@ class TracerSettingWindow(QWidget):
 		self.tracer_control.addRow(self.peak_height_box, QLabel("Peak Height (%)"))
 		self.tracer_control.addRow(self.peak_prominence_box, QLabel("Peak Prominence (%)"))
 		self.tracer_control.addRow(self.peak_width_box, QLabel("Peak Width (px)"))
+		self.tracer_control.addRow(self.tracing_mode_box, QLabel("Tracing mode"))
 		self.tracer_control.addRow(QLabel("Whittaker Smoothing & Peak Finding"))
 		self.tracer_control.addRow(self.smoothing_stiffness_box, QLabel("Smoothing Stiffness"))
 		self.tracer_control.addRow(self.smoothing_order_box, QLabel("Smoothing Order"))
@@ -518,16 +526,11 @@ class TracerSettingWindow(QWidget):
 		# Signals/Slots
 		self.abs_order_number_m_direction_down_btn.clicked.connect(self.update_current_settings)
 		self.abs_order_number_m_direction_up_btn.clicked.connect(self.update_current_settings)
+		self.tracing_mode_box.currentTextChanged.connect(self.update_tracing_mode)
 		self.save_settings_btn.clicked.connect(self.save_tracer_settings_to_file)
 		self.load_settings_btn.clicked.connect(self.load_tracer_settings_from_file)
 		self.trace_btn.clicked.connect(self.start_tracer)
 		self.visible_traces.toggled.connect(self.toggle_tracer_line_visiblity)
-
-	def load_tracer_settings_from_file(self):
-		self.CurrentSettings = -1
-		self.CurrentSettings = OrderTracerSettings("from_file")
-		self.canvas.TracerSettings = self.CurrentSettings
-		self.update_controls()
 
 	def update_controls(self):
 		"""
@@ -561,6 +564,9 @@ class TracerSettingWindow(QWidget):
 		self.peak_width_box.setValue(				self.CurrentSettings.peak_width_px)
 		self.smoothing_stiffness_box.setValue(		self.CurrentSettings.smoothing_stiffness)
 		self.smoothing_order_box.setValue(			self.CurrentSettings.smoothing_order)
+		
+	def update_tracing_mode(self, new_item_string: str):
+		self.precision_tracing_mode = QT_YETI.TRACING_MODES[new_item_string]
 
 	@pyqtSlot()
 	def update_current_settings(self):
@@ -606,6 +612,12 @@ class TracerSettingWindow(QWidget):
 		
 		self.canvas.TracerSettings = self.CurrentSettings
 
+	def load_tracer_settings_from_file(self):
+		self.CurrentSettings = -1
+		self.CurrentSettings = OrderTracerSettings("from_file")
+		self.canvas.TracerSettings = self.CurrentSettings
+		self.update_controls()
+
 	def save_tracer_settings_to_file(self):
 		"""
 		`TracerSettingsWindow.save_tracer_settings_to_file()`\r\n
@@ -622,7 +634,7 @@ class TracerSettingWindow(QWidget):
 		self.save_tracer_settings_to_file()
 		NewSettings = self.CurrentSettings
 		# Start tracing in Canvas Class
-		self.canvas.tracer_start_tracing(NewSettings)
+		self.canvas.tracer_start_tracing(NewSettings, self.precision_tracing_mode)
 	
 	@pyqtSlot()
 	def toggle_tracer_line_visiblity(self):
@@ -814,7 +826,7 @@ class TabOrderTracer(QWidget):
 	def gui_intensity_changed(self):
 		max = self.intensity_max.value()
 		min = self.intensity_min.value()
-		QtYetiLogger(QT_YETI.MESSAGE,f"New Intensity Range: {min,max}",True)
+		#### REMOVE #### QtYetiLogger(QT_YETI.MESSAGE,f"New Intensity Range: {min,max}",True)
 		if( min < max):
 			self.figure_canvas.update_intensities(min, max)
 

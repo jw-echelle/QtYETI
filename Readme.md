@@ -2,7 +2,7 @@
 QtYETI is a program meant to faciliate Echelle spectrum data reduction one day.
 It is by no means professionally programmed.
 
-2023 Jakob Wierzbowski <jw.echelle@outlook.com>
+2022-2024 Jakob Wierzbowski <jw.echelle@outlook.com>
 
 <a href="Resources/QtYetiProgram.png" target="blank"><img align="center" src="Resources/QtYetiProgram.png" height="400" /></a>
 

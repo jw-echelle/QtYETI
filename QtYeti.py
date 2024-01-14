@@ -74,37 +74,43 @@ if __name__ == '__main__':
 	print("\r\nYeti Yeti Yeti\r\n")
 	
 	todo_list_message = f"\r\n\
-		• DARKFIELD corrected spectra dont work due to peak finding method\r\n\
-		• Handle FITS files with multiple images in one file → Use QInputDialoge → getItems()\r\n\
-		• Generally the readin has to be changed.\r\n\
-			• Image bit-ness via what is written in the FITS file! \r\n\
+		• [50%] DARKFIELD corrected spectra dont work due to peak finding method\r\n\
 		• Fit function generation (1): It is hardcoded to have no x0! Bad idea\r\n\
 			• Fit function generation (2): Spectrogram.update_fit_function() then also generates the wrong string\r\n\
 		!!!!• Fit function generation (3): Spectrogram.load_order_settings() needs an info to check whether the spectrum is calibrated\r\n\
 		• Fit optimization with division factors. See TracerCanvas\r\n\
+		• Fitting of traces with weighting. Flatfield images tend to become darker at the edges of an image on simple Echelles.\r\n\
+			• Make a combobox the tracer window for standard (unweighted) and weighted trace fitting\r\n\
 		• [50%] Exporting orders to FITs\r\n\
-		• Imageslicer summationdirection is currently hardcoded. What if the spectrum is flipped and the main order is above or below\r\n\
-		• [50%] Make Hardware Settings floatable and startable via action menu\r\n\
-		• Sort Hardware & Settings\r\n\
+		• Imageslicer summation-direction is currently hardcoded. What if the spectrum is flipped and the main order is above or below\r\n\
+		• Make floating Hardware Settings available via actions menu and shortcut\r\n\
 		• Load ThAr into Flatfield TAB, click on ThAr Peak and give this order the absolute m number via a window\r\n\
-		• Improve and unify plotting behaviour. It's a mess.\r\n\
+		• [50%] Improve and unify plotting behaviour. It's a mess.\r\n\
 			• Pass Plot Objects? → identify, and change axes limits accordingly\r\n\
 		• Tracer\r\n\
-			• hard-coded precision mode and intensity limiter → put into TracerWindow\r\n\
+			• hard-coded precision mode and intensity limiter via SNR? → put into TracerWindow\r\n\
 			• Further improve precision mode.\r\n\
-		• Extraction: Summation method needs to be an entry in an itemBox().\r\n\
-		• call it trace or order? → Rename the Order Class to Trace?\r\n\
-		• TracerSettings to be read into QT_YETI_Settings\r\n\
-		• Check: Remove Point class and use Spot class\r\n\
-		• Add Multithreading → e.g. when tracing in precision mode\r\n\
+			• Issues with orders that leave the imaging field → e.g. Darkfield corrected FLISES masterflat spectra\r\n\
 		• Blaze-Correction\r\n\
-		• Intensities in Calibrator Tab suck\r\n\
-		• Check the oncludion of PathLib\r\n\
-		• Think of single spectrum viewer via bintables or other means\r\n\
-		• ConfigParser & SafeConfigParser - check deprecation\r\n\
+		• Refactor Tabs/Canvases into more abstract classes\r\n\
+		• TracerSettings to be read into QT_YETI_Settings\r\n\
+		• Sort Hardware & Settings\r\n\
+		• Add Multithreading → e.g. when tracing in precision mode\r\n\
 		• INI File + Class for designs of plots and tabs.\r\n\
 		• Unify DocStrings\r\n\
+		• Check the includion of PathLib\r\n\
+		• ConfigParser & SafeConfigParser - check deprecation\r\n\
+		• call it trace or order? → Rename the Order Class to Trace?\r\n\
+		• Check: Remove Point class and use Spot class\r\n\
+		• Think of single spectrum viewer via bintables or other means\r\n\
 		• ...\r\n"
+	
+		# • [done] Make Hardware Settings floatable\r\n\
+		# • [done] Image bit-ness via what is written in the FITS file! \r\n\
+		# • [done] Extraction: Summation method needs to be an entry in an itemBox().\r\n\
+		# • [done] Intensities in Calibrator Tab suck\r\n\
+		# • [done] Generally the readin has to be changed.\r\n\
+		# • [done] Handle FITS files with multiple images in one file → Use QInputDialoge → getItems()\r\n\
 		# • [done] Reloading different types of spectra results in some indexing fails and other faulty behaviour\r\n\
 		# • [done] Indexing issue with certrain spectra in extraction function\r\n\
 		# • [done] How to deal with positive/negative absolute orders and their direction\r\n\
