@@ -86,7 +86,7 @@ class QtYetiSettings:
 
 	def readHardwareConfig(self):
 		try:
-			config = configparser.SafeConfigParser()
+			config = configparser.ConfigParser()
 			config.optionxform=str
 			config.read(self.SETTINGS_INI_PATH)
 
@@ -122,7 +122,7 @@ class QtYetiSettings:
 
 	def writeHardwareConfig(self):
 		try:
-			config = configparser.SafeConfigParser()
+			config = configparser.ConfigParser()
 			config.optionxform=str
 			config.read(self.SETTINGS_INI_PATH)
 

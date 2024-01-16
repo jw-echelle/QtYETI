@@ -437,7 +437,7 @@ class OrderTracerSettings:
 
 		if( origin == 'from_file'):
 			try:
-				config = configparser.SafeConfigParser()
+				config = configparser.ConfigParser()
 				config.optionxform=str
 				config.read(QT_YETI.SETTINGS_INI_PATH)
 
@@ -476,7 +476,7 @@ class OrderTracerSettings:
 			self.smoothing_order = 				0
 
 	def to_file(self):
-		config = configparser.SafeConfigParser()
+		config = configparser.ConfigParser()
 		config.optionxform=str
 		config.read(QT_YETI.SETTINGS_INI_PATH)
 
@@ -833,9 +833,9 @@ class SpecificCanvas(GenericCanvas):
 		# Axes
 		self.axes_spectrogram = plt.subplot2grid((16,16),(0,0),colspan=16, rowspan = 9, fig=self.control_figure, label="Full_Spectrogram")
 		self.axes_spectrum = plt.subplot2grid((16,16),(9,0),colspan=16, rowspan = 6, fig=self.control_figure, label="Extracted_Spectrum")
-		self.axes_spectrogram.set_ylabel("$m · \lambda(X,Y)$")
-		self.axes_spectrum.set_xlabel("$\lambda(X,Y)$")
-		self.axes_spectrum.set_ylabel("Counts (arb. u.)")
+		self.axes_spectrogram.set_ylabel(r"$m · \lambda(X,Y)$")
+		self.axes_spectrum.set_xlabel(r"$\lambda(X,Y)$")
+		self.axes_spectrum.set_ylabel(r"Counts (arb. u.)")
 
 		self.spectrogram_plot = self.axes_spectrogram.imshow(self.CurrentSpectrogram.data,\
 			vmin=self.CurrentSpectrogram.intmin,\
