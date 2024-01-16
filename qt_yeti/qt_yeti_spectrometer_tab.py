@@ -7,8 +7,6 @@ from dataclasses import dataclass
 import sys
 import os
 
-from pyautogui import click
-
 from qt_yeti.qt_yeti_general import *
 from qt_yeti.qt_yeti_functions import *
 from qt_yeti.qt_yeti_hardware_settings_tab import *

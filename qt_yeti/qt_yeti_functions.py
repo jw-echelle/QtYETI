@@ -1,5 +1,3 @@
-from ast import Raise
-from PyQt5.QtCore import Qt
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -8,8 +6,6 @@ from dataclasses import dataclass
 
 import sys
 import os
-
-from PyQt5.QtWidgets import QWidget
 
 from qt_yeti.qt_yeti_general import *
 #from qt_yeti.qt_yeti_functions import *
