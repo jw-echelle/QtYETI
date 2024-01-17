@@ -422,22 +422,24 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 		for order in self.CurrentSpectrogram.get_order_list():
 			print(order.number_m)
 	
-	def trigger_order_extraction( self, mode:str ) -> None:
+	def trigger_order_extraction( self, extraction_mode:str ) -> None:
 		"""
 		Trigger order extraction
 		### Details
 		This method extracts either one selected order into a FITs file or loops over all orders to generate one file per order.
 		#### Parameters:
-			`mode` (str): Extraction mode: `"single"` for extracting the current order and `"all"` for looping over all orders
+			`extraction_mode` (str): Extraction mode: `"single"` for extracting the current order and `"all"` for looping over all orders
 		"""
 		# Check if orders are available
 		if(Spectrogram.order_list):
 			
-			echelle_order_spectrum_to_fits(self.CurrentSpectrogram, extraction_mode=mode, order_index=self.active_order_index, single_trace_mode=False)
+			echelle_order_spectrum_to_fits(self.CurrentSpectrogram,\
+				extraction_mode=extraction_mode, summation_method=self.summation_method,\
+				order_index=self.active_order_index, single_trace_mode=False \
+			)
 
 		else:
 			QtYetiLogger(QT_YETI.ERROR,f"No Fit Coefficients / Orders loaded.")
-
 
 # Gemetric Calibrator
 class GeometricCalibratorWindow(QWidget):

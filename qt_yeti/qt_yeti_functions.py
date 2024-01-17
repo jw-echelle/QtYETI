@@ -866,7 +866,7 @@ class SpecificTab(GernericTab):
 		super(SpecificTab,self).__init__(parent,SpecificCanvas(parent=self))
 
 #%% possible Canvas functions
-def delete_mpl_plt_object_by_label(mpl_axes_object_list, line_label: str):
+def delete_mpl_plt_object_by_label(mpl_axes_object_list, plot_item_label: str):
 	"""
 	Delete all mpl_plt objects such as lines, texts, ... from a specific axes object
 
@@ -879,23 +879,16 @@ def delete_mpl_plt_object_by_label(mpl_axes_object_list, line_label: str):
 	if( not (isinstance(all_plot_objects, matplotlib.axes._base._AxesBase.ArtistList))):
 		return
 	
-	found_lines = []
-
-	for index, line in enumerate(all_plot_objects):
-		if(line_label in line.get_label()):
-			found_lines.append(index)
-	found_lines.reverse()
-
-	for index in found_lines:
-		all_plot_objects.pop(index)
-
+	for item in all_plot_objects:
+		if(plot_item_label in item.get_label()):
+			item.remove()
 
 #%% Auxiliary functions
 ###############################################################################################################################
 
 class QtYetiSettingsReader():
 	def __init__(self):
-		self.config = configparser.SafeConfigParser()
+		self.config = configparser.ConfigParser()
 		self.config.optionxform=str
 		self.config.read(QT_YETI.SETTINGS_INI_PATH)
 
