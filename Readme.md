@@ -3,7 +3,7 @@ QtYETI is a program meant to faciliate the data reduction of Echelle spectra wit
   
 2022-2024 Jakob Wierzbowski <jw.echelle@outlook.com>
 
-<a href="Resources/QtYetiProgram.png" target="blank"><img align="center" src="Resources/QtYetiProgram.png" height="400" /></a>
+<a target="_blank" rel="noopener noreferrer" href="Resources/QtYetiProgram.png"><img align="center" src="Resources/QtYetiProgram.png" height="400" /></a>
 
 ### Disclaimer
 This program is in its beginning stages. It is possible to fit and extract 1D spectra from 2D spectrograms.  
@@ -37,4 +37,4 @@ In the `Calibration` Tab you can find a geometric calibrator that has been used 
 • Ubuntu Linux 22.04  
 
 #### Yeti
-<a href="qt_yeti/yeti.png" target="blank"><img align="center" src="qt_yeti/yeti.png" height="256" /></a>
+<a target="_blank" rel="noopener noreferrer" href="qt_yeti/yeti.png"><img align="center" src="qt_yeti/yeti.png" height="256" /></a>
