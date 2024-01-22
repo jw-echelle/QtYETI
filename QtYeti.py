@@ -92,6 +92,8 @@ if __name__ == '__main__':
 			• Further improve precision mode.\r\n\
 			• Issues with orders that leave the imaging field → e.g. Darkfield corrected FLISES masterflat spectra\r\n\
 		• Blaze-Correction\r\n\
+		• Calibration of orders\r\n\
+		• Geometric Calibrator Settings in qt_yeti_settings.ini\r\n\
 		• Refactor Tabs/Canvases into more abstract classes\r\n\
 		• TracerSettings to be read into QT_YETI_Settings\r\n\
 		• Sort Hardware & Settings\r\n\
@@ -99,6 +101,7 @@ if __name__ == '__main__':
 		• INI File + Class for designs of plots and tabs.\r\n\
 		• Unify DocStrings\r\n\
 		• Check the includion of PathLib\r\n\
+		• [50%] Synchonize scrolling in canvas and order number - Still a little hacky\r\n\
 		• ConfigParser & SafeConfigParser - check deprecation\r\n\
 		• call it trace or order? → Rename the Order Class to Trace?\r\n\
 		• Check: Remove Point class and use Spot class\r\n\

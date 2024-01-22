@@ -302,6 +302,14 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 
 		self.CurrentSpectrogram.remove_from_order_list(clicked_y)
 
+	def set_reference_spectrogram(self, state: bool):
+		if( state == True):
+			QT_YETI.ReferenceData.Flatfield = self.CurrentSpectrogram
+			QtYetiLogger(QT_YETI.MESSAGE,f"Flatfield Reference Spectrum has been set. Filename: {ShellColors.OKBLUE + self.CurrentSpectrogram.filename + ShellColors.ENDC}.")
+		else:
+			QT_YETI.ReferenceData.Flatfield = -1
+			QtYetiLogger(QT_YETI.MESSAGE,f"Flatfield Reference Spectrum deleted.")
+
 	# Tracing
 	@elapsed_time
 	def tracer_start_tracing(self, ReceivedTracerSettings: OrderTracerSettings, precision_tracing_mode: bool = False):
@@ -711,6 +719,7 @@ class TabOrderTracer(QWidget):
 		self.intensity_max = YetiSpinBox()
 		self.intensity_min = YetiSpinBox()
 		self.log_scale_chkbx = QCheckBox("Log Scale")
+		self.set_as_reference_spectrogram = QCheckBox("Save Flatfield as reference")
 		self.x_max	= YetiSpinBox()
 		self.x_min	= YetiSpinBox()
 		self.y_max	= YetiSpinBox()
@@ -731,6 +740,7 @@ class TabOrderTracer(QWidget):
 		self.intensity_control_layout.addRow(self.intensity_max, QLabel("Intensity maximum"))
 		self.intensity_control_layout.addRow(self.intensity_min, QLabel("Intensity minimum"))
 		self.intensity_control_layout.addRow(self.log_scale_chkbx)
+		self.intensity_control_layout.addRow(self.set_as_reference_spectrogram)
 
 		self.axes_control_layout.addRow(self.x_max, QLabel("X Axis Maximum"))
 		self.axes_control_layout.addRow(self.x_min, QLabel("X Axis Minimum"))
@@ -781,6 +791,7 @@ class TabOrderTracer(QWidget):
 		self.intensity_max.valueChanged.connect(self.gui_intensity_changed)
 		self.intensity_min.valueChanged.connect(self.gui_intensity_changed)
 		self.log_scale_chkbx.stateChanged.connect(self.gui_log_scale_changed)
+		self.set_as_reference_spectrogram.stateChanged.connect(self.gui_set_as_reference)
 
 		self.x_max.valueChanged.connect(self.gui_axes_changed)
 		self.x_min.valueChanged.connect(self.gui_axes_changed)
@@ -841,6 +852,14 @@ class TabOrderTracer(QWidget):
 		else:
 			scale_type = "linear"
 		self.figure_canvas.update_scale_type(scale_type, int_min, int_max)
+
+	@pyqtSlot()
+	def gui_set_as_reference(self):
+
+		if( self.set_as_reference_spectrogram.checkState() > 1):
+			self.figure_canvas.set_reference_spectrogram(state=True)
+		else:
+			self.figure_canvas.set_reference_spectrogram(state=False)
 
 	@pyqtSlot()
 	def gui_axes_changed(self):

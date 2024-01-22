@@ -40,6 +40,8 @@ class QtYetiSettings:
 			cls.readHardwareConfig(cls)
 			cls.readTracerConfig(cls)
 
+			cls.ReferenceData=QtYetiReferenceSpectrograms()
+
 		return cls._instance
 
 	def initialize_variables(self):
@@ -73,10 +75,10 @@ class QtYetiSettings:
 		self.ANNOTATION_X_COORDINATE = 42
 
 		self.SUMMATIONS = {\
-			"Simple Sum":"simple_sum",\
-			"On Trace Center":"order_center_pixel",\
-			"Square-root weighted":"sqrt_weighted_sum",\
-			"Optimal Extraction":"optimal"\
+			"Extraction: Simple Sum":"simple_sum",\
+			"Extraction: On Trace Center":"order_center_pixel",\
+			"Extraction: Square-root weighted":"sqrt_weighted_sum",\
+			"Extraction: Optimal Extraction":"optimal"\
 		}
 
 		self.TRACING_MODES = {\
@@ -163,6 +165,21 @@ class QtYetiSettings:
 	
 	def writeTracerConfig(self):
 		...
+
+class QtYetiReferenceSpectrograms:
+	_instance = None
+	def __new__(cls):
+		if cls._instance is None:
+			cls._instance = super().__new__(cls)
+
+			cls.create_spectrograms(cls)
+
+		return cls._instance
+
+	def create_spectrograms(self):
+		self.Flatfield = -1
+		self.Darkfield = -1
+		self.Sciencedata = -1
 
 
 """ Initialize Class for settings """

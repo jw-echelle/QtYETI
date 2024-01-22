@@ -121,14 +121,12 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 
 	def canvas_scroll_event(self, event):
 		if(event.inaxes == self.axes_spectrogram):
-			print(event)
-			print(type(event)) # MouseEvent
-			print(event.button, event.step)
+			QtYetiLogger(QT_YETI.MESSAGE,f"Event {event}, Event Type: {type(event)}, Event Button: {event.button}, Event Step: {event.step}")
 
 			new_index = int(np.clip(self.active_order_index + int(event.step),a_min=1,a_max=len(self.CurrentSpectrogram.order_list)-1))
 
 			self.active_order_index = new_index
-			_ = self.update_spectrum(self.active_order_index)
+			self.update_spectrum(self.active_order_index)
 
 	# Plotting
 	def load_spectrogram(self, requested_filename, HeaderDataUnit: fits.PrimaryHDU | fits.ImageHDU = None):
@@ -629,6 +627,10 @@ class TabCalibrator(QWidget):
 		self.current_order_box = QWidget()
 		self.current_order_box.setLayout(QHBoxLayout())
 		self.current_order_spinbox = YetiSpinBox()
+
+		#### HACK ####
+		self.current_order_spinbox_value = self.current_order_spinbox.value()
+		
 		self.current_order_box.layout().addWidget(self.current_order_spinbox)
 		self.current_order_box.layout().addWidget(QLabel("Current Trace/Order (relative)"))
 		self.current_order_box.layout().setContentsMargins(0,0,0,0)
@@ -789,7 +791,20 @@ class TabCalibrator(QWidget):
 
 	@pyqtSlot()
 	def gui_set_order_index(self):
-		self.current_order_spinbox.setValue( self.figure_canvas.update_spectrum( self.current_order_spinbox.value() -1) +1)
+		#### HACK ####
+		previous_value = self.current_order_spinbox_value
+		new_value = self.current_order_spinbox.value()
+		active_order_number = self.figure_canvas.active_order_index + 1
+
+		delta = new_value - previous_value
+
+		if(active_order_number != previous_value):
+			new_value = active_order_number + delta
+
+		self.current_order_spinbox_value = self.figure_canvas.update_spectrum(new_value -1) +1
+
+		self.current_order_spinbox.setValue( self.current_order_spinbox_value )
+		# self.current_order_spinbox.setValue( self.figure_canvas.update_spectrum( self.current_order_spinbox.value() -1) +1)
 
 	def gui_update_summation(self, new_item_string: str):
 		self.figure_canvas.summation_method = QT_YETI.SUMMATIONS[new_item_string]

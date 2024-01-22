@@ -1596,22 +1596,24 @@ def echelle_order_spectrum_to_fits(CurrentSpectrogram: Spectrogram, extraction_m
 
 	# Extract spectra
 	# =================== Please note: prepare for optimal extraction
-	x_range, extraced_spectrum, _ , _ = echelle_trace_optimal_extraction( CurrentSpectrogram, main_order_index, summation_method, single_trace_mode)
+	x_range, extraced_spectrum, ex_rows , _ = echelle_trace_optimal_extraction( CurrentSpectrogram, main_order_index, summation_method, single_trace_mode)
 
+	slit_width = len(ex_rows)
 	order_number = sign_of_orders * order_number_array[main_order_index]
 
 	# Save the extracted spectrum to file
-	save_single_order_to_fits(CurrentSpectrogram.filename, CurrentSpectrogram.header, order_number, x_range, extraced_spectrum)
+	save_single_order_to_fits(CurrentSpectrogram.filename, CurrentSpectrogram.header, order_number, x_range, extraced_spectrum, slit_width)
 
-def save_single_order_to_fits(filename: str, PreviousHeader: fits.Header, order_number:float, x_axis: np.ndarray, spectrum: np.ndarray):
+def save_single_order_to_fits(filename: str, PreviousHeader: fits.Header, order_number:float, x_axis: np.ndarray, spectrum: np.ndarray, summation_width:int = None):
 	"""
 	File savinf of a single order (multiple traces per order)
 	#### Parameters:
 		`filename` (str): Filename of the loaded spectrogram
 		`PreviousHeader` (fits.Header): FITS header from the loaded file (Spectrogram Class variable `header`)
-		`order_number` (float): Order number for the 
-		`x_axis` (np.ndarray): _description_
-		`spectrum` (np.ndarray): _description_
+		`order_number` (float): Order number for the history/comment section in the fits file
+		`x_axis` (np.ndarray): x array along the columns to enable plotting in the program
+		`spectrum` (np.ndarray): 1D spectrum to be saved into the FITS file
+		`summation_width` (int): Number of rows used for the summation of intensities.
 	"""	
 	if(filename == "QtYeti.Sample"):
 		QtYetiLogger(QT_YETI.ERROR,"Please load a valid FITS file.")
@@ -1628,8 +1630,9 @@ def save_single_order_to_fits(filename: str, PreviousHeader: fits.Header, order_
 	NewHeader["BITPIX"] = -64
 
 	NewHeader[""]=""
-	NewHeader.append(("History",f"Extracted with QtYETI on {astro_time(datetime.now().isoformat()).to_string()}"), end=True)
+	NewHeader.append(("HISTORY",f"Extracted with QtYETI on {astro_time(datetime.now().isoformat()).to_string()}"), end=True)
 	NewHeader.append(("ORDER",order_number,"Physical order m"), end=True)
+	NewHeader.append(("SUMWIDTH", summation_width, "No. of pixels used for summation."))
 
 	PrimaryHDU = fits.PrimaryHDU( data=spectrum.astype(np.float64), header=NewHeader )
 	PrimaryHDU.add_checksum()

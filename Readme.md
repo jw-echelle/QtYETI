@@ -16,11 +16,12 @@ pip install --upgrade setuptools
 
 ### Requirements
 pip install 
+astropy>=6.0.0
+configparser
+datetime
+matplotlib==3.6.3
 numpy
 scipy
-astropy
-matplotlib==3.6.3
-configparser
 pyqt5
 
 ### Start QtYETI
