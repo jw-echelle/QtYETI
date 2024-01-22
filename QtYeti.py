@@ -91,7 +91,9 @@ if __name__ == '__main__':
 			• hard-coded precision mode and intensity limiter via SNR? → put into TracerWindow\r\n\
 			• Further improve precision mode.\r\n\
 			• Issues with orders that leave the imaging field → e.g. Darkfield corrected FLISES masterflat spectra\r\n\
-		• Blaze-Correction\r\n\
+		• [25%] Blaze-Correction\r\n\
+			• Added Flatfield as Reference Spectrogram\r\n\
+			• Science data needs to be added\r\n\
 		• Calibration of orders\r\n\
 		• Geometric Calibrator Settings in qt_yeti_settings.ini\r\n\
 		• Refactor Tabs/Canvases into more abstract classes\r\n\
