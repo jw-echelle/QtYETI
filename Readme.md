@@ -29,7 +29,7 @@ pyqt5
 • Use "python ./QtYeti.py"  
 
 ### Features
-In the `Calibration` Tab you can find a geometric calibrator that has been used to sucessfully predict ThAr lines in <a href="https://arxiv.org/abs/2401.00105" target="_blank">our manuscript</a>.
+In the `Calibration` Tab you can find a geometric calibrator that has been used to sucessfully predict ThAr lines in <a target="_blank" rel="noopener noreferrer" href="https://arxiv.org/abs/2401.00105">our manuscript</a>.
 
 ### Tested Operating Systems
 • Windows 10/11 64bit  
