@@ -1,14 +1,14 @@
 # Welcome to QtYETI - Yeti's Extra Terrestrial Investigations
-QtYETI is a program meant to faciliate Echelle spectrum data reduction one day.
-It is by no means professionally programmed.
-
+QtYETI is a program meant to faciliate the data reduction of Echelle spectra with and without image slicers.  
+  
 2022-2024 Jakob Wierzbowski <jw.echelle@outlook.com>
 
 <a href="Resources/QtYetiProgram.png" target="blank"><img align="center" src="Resources/QtYetiProgram.png" height="400" /></a>
 
 ### Disclaimer
-This program is in its beginning stages and is not yet able to do scientific reductions/calibrations/extractions.  
-Everything has been tested in a native python environment. Currently we have no experience using conda environments.
+This program is in its beginning stages. It is possible to fit and extract 1D spectra from 2D spectrograms.  
+A spectral calibration is under development.  
+Everything has been tested in a native python environment. Currently we have no experience using `conda` environments.
 
 ## Before you start
 python[.exe] -m pip install --upgrade pip  
@@ -27,6 +27,9 @@ pyqt5
 ### Start QtYETI
 • Navigate to the directory where QtYETI has been extracted to  
 • Use "python ./QtYeti.py"  
+
+### Features
+In the `Calibration` Tab you can find a geometric calibrator that has been used to sucessfully predict ThAr lines in <a href="https://arxiv.org/abs/2401.00105" target="_blank">our manuscript</a>.
 
 ### Tested Operating Systems
 • Windows 10/11 64bit  
