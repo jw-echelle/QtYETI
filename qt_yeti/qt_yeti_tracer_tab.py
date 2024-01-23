@@ -319,6 +319,10 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 
 		if( not self.CurrentSpectrogram.order_centers_list ):
 			QtYetiLogger(QT_YETI.ERROR,"Order centers list is empty. Nothing to trace.")
+			return
+		if( self.CurrentSpectrogram.filename == "QtYeti.Sample"):
+			QtYetiLogger(QT_YETI.ERROR,"Please load an appropriate FITS file with a 2D Spectrogram. Nothing to trace.")
+			return
 
 		delete_mpl_plt_object_by_label(self.axes_spectrogram.lines, "fit_marker")
 		delete_mpl_plt_object_by_label(self.axes_spectrogram.lines, "fit_line")

@@ -1335,8 +1335,8 @@ def echelle_order_tracer(CurrentSpectrogram: Spectrogram, CurrentTracerSettings:
 	result_list = []
 
 	initial_x, _ = order_centers_list[0]
-	left_trace_range  = range(col(initial_x, SP_COLUMNS), 0+DISTANCE_TO_EDGE, -1 * COLUMN_SAMPLING_DISTANCE)
-	right_trace_range = range(col(initial_x, SP_COLUMNS)+1 , SP_COLUMNS-1 - DISTANCE_TO_EDGE, COLUMN_SAMPLING_DISTANCE)
+	left_trace_range  = range(col(initial_x, SP_COLUMNS)     , DISTANCE_TO_EDGE, -1 * COLUMN_SAMPLING_DISTANCE)
+	right_trace_range = range(col(initial_x, SP_COLUMNS) + 1 , SP_COLUMNS-1 - DISTANCE_TO_EDGE, COLUMN_SAMPLING_DISTANCE)
 
 	for _, initial_y in order_centers_list: # m, x, y in ...
 
