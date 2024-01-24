@@ -12,17 +12,20 @@ Everything has been tested in a native python environment. Currently we have no 
 
 ## Before you start
 python[.exe] -m pip install --upgrade pip  
-pip install --upgrade setuptools
+pip install -r requirements.txt
 
 ### Requirements
-pip install 
 astropy>=6.0.0
 configparser
 datetime
-matplotlib==3.6.3
+matplotlib>=3.6.3
 numpy
+PyQt5
+PyQt5-Qt5
+PyQt5-sip
 scipy
-pyqt5
+
+see also `requirements.txt`
 
 ### Start QtYETI
 • Navigate to the directory where QtYETI has been extracted to  
@@ -32,9 +35,10 @@ pyqt5
 In the `Calibration` Tab you can find a geometric calibrator that has been used to sucessfully predict ThAr lines in <a target="_blank" rel="noopener noreferrer" href="https://arxiv.org/abs/2401.00105">our manuscript</a>.
 
 ### Tested Operating Systems
-• Windows 10/11 64bit  
-• Linux Mint 21.2 (Codename: Victoria)  
-• Ubuntu Linux 22.04  
+• Windows 10/11 64bit
+• Linux Mint 21.2 (Codename: Victoria)
+• Ubuntu Linux 22.04
+• MacOS 14.1.2
 
 #### Yeti
 <a target="_blank" rel="noopener noreferrer" href="qt_yeti/yeti.png"><img align="center" src="qt_yeti/yeti.png" height="256" /></a>
