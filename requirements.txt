@@ -1,0 +1,9 @@
+astropy==6.0.0
+configparser
+datetime
+matplotlib==3.6.3
+numpy
+PyQt5
+PyQt5-Qt5
+PyQt5-sip
+scipy

@@ -320,6 +320,7 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		if( not self.CurrentSpectrogram.order_centers_list ):
 			QtYetiLogger(QT_YETI.ERROR,"Order centers list is empty. Nothing to trace.")
 			return
+		
 		if( self.CurrentSpectrogram.filename == "QtYeti.Sample"):
 			QtYetiLogger(QT_YETI.ERROR,"Please load an appropriate FITS file with a 2D Spectrogram. Nothing to trace.")
 			return
@@ -583,11 +584,10 @@ class TracerSettingWindow(QWidget):
 	@pyqtSlot()
 	def update_current_settings(self):
 		"""
-		`TracerSettingsWindow.update_current_settings()`
-		
-		Method → update_current_settings()
-		--------------------------
 		Update CurrentSettings (TracerSettings) from Qt button and box inputs
+
+		#### Raises:
+			`ValueError`: Raised when the button ends up in an unititialized state through an unknown error.
 		"""		
 		self.CurrentSettings.spotsize = 					self.spotsize_box.value()
 		self.CurrentSettings.image_slicer = 				self.image_slicer_box.isChecked()
@@ -632,11 +632,8 @@ class TracerSettingWindow(QWidget):
 
 	def save_tracer_settings_to_file(self):
 		"""
-		`TracerSettingsWindow.save_tracer_settings_to_file()`\r\n
-		Method → save_tracer_settings_to_file() 
-		---------------------------------------
 		Save the current state to the settings ini file
-		"""		
+		"""
 		self.update_current_settings()
 		self.CurrentSettings.to_file()
 		self.canvas.TracerSettings = self.CurrentSettings
@@ -730,10 +727,10 @@ class TabOrderTracer(QWidget):
 		self.y_min	= YetiSpinBox()
 
 		# Create Buttons
-		self.action_load_spectrogram_btn	= QPushButton("Load Flatfield File")
-		self.action_open_tracer_btn			= QPushButton("Open Tracer")
-		self.action_save_coefficients_btn	= QPushButton("Save Trace Fit Coefficients to file")
-		self.action_load_coefficients_btn	= QPushButton("Load Trace Fit Coefficients from file")
+		self.action_load_spectrogram_btn	= QPushButton("Load Flatfield Image File")
+		self.action_open_tracer_btn			= QPushButton("Open Tracer Window")
+		self.action_save_coefficients_btn	= QPushButton("Save Order Information")
+		self.action_load_coefficients_btn	= QPushButton("Load Order Information")
 		self.action_free_0_btn	= QPushButton("Free to be programmed (0)")
 		self.action_free_1_btn	= QPushButton("Free to be programmed (1)")
 		self.action_free_2_btn	= QPushButton("Free to be programmed (2)")
