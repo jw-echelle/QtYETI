@@ -729,10 +729,14 @@ class TabCalibrator(QWidget):
 		self.spectrogram_filename = requested_filename
 		self.intensity_max.setValue(int_max)
 		self.intensity_min.setValue(int_min)
-		self.x_max.setValue(self.figure_canvas.CurrentSpectrogram.xsize-1)
-		self.y_max.setValue(self.figure_canvas.CurrentSpectrogram.ysize-1)
-		self.x_min.setValue(0)
-		self.y_min.setValue(0)
+		# self.x_max.setValue(self.figure_canvas.CurrentSpectrogram.xsize-1)
+		# self.y_max.setValue(self.figure_canvas.CurrentSpectrogram.ysize-1)
+		# self.x_min.setValue(0)
+		# self.y_min.setValue(0)
+		x_min, y_min = 0, 0
+		x_max, y_max = self.figure_canvas.CurrentSpectrogram.xsize-1, self.figure_canvas.CurrentSpectrogram.ysize-1
+		self.figure_canvas.axes_spectrogram.set_xlim(x_min, x_max)
+		self.figure_canvas.axes_spectrogram.set_ylim(y_min, y_max)
 		print(self.figure_canvas.CurrentSpectrogram)
 
 	@pyqtSlot()

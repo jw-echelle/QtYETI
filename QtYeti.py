@@ -82,9 +82,10 @@ if __name__ == '__main__':
 		• Fitting of traces with weighting. Flatfield images tend to become darker at the edges of an image on simple Echelles.\r\n\
 			• Make a combobox the tracer window for standard (unweighted) and weighted trace fitting\r\n\
 		• [50%] Exporting orders to FITs\r\n\
+		• Update spectrogram plot extent in MPLCanvas class\r\n\
 		• Imageslicer summation-direction is currently hardcoded. What if the spectrum is flipped and the main order is above or below\r\n\
 		• Make floating Hardware Settings available via actions menu and shortcut\r\n\
-		• Load ThAr into Flatfield TAB, click on ThAr Peak and give this order the absolute m number via a window\r\n\
+		• Load ThAr into Calibrator Tab, click on ThAr Peak and give this order the absolute m number via a window\r\n\
 		• [50%] Improve and unify plotting behaviour. It's a mess.\r\n\
 			• Pass Plot Objects? → identify, and change axes limits accordingly\r\n\
 		• Tracer\r\n\
