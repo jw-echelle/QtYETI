@@ -39,7 +39,6 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		self.setFocusPolicy( Qt.ClickFocus )
 		self.setFocus()
 		
-		self.navigationbar = None
 		self.navigationbar = NavigationToolbar2QT(self, parent=None)
 		# Setup sample spectrogram		
 		self.CurrentSpectrogram = Spectrogram("QtYeti.Sample")
@@ -95,7 +94,6 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 
 	### Navigation Bar ###
 	def return_navigation_bar(self):
-		#self.navigationbar = NavigationToolbar2QT(self, parent=None)
 		return self.navigationbar
 
 	### MPL Callbacks ###

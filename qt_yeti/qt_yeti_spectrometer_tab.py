@@ -35,7 +35,6 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 		self.setFocusPolicy( Qt.ClickFocus )
 		self.setFocus()
 
-		self.navigationbar = None
 		self.navigationbar = NavigationToolbar2QT(self, parent=None)
 
 		# Setup sample spectrogram		
@@ -89,7 +88,6 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 
 	### Navigation Bar ###
 	def return_navigation_bar(self):
-		#self.navigationbar = NavigationToolbar2QT(self, parent=None)
 		return self.navigationbar
 
 	### MPL Callbacks ###
@@ -108,12 +106,8 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 
 	def canvas_scroll_event(self, event):
 		if(event.inaxes == self.axes_spectrogram):
-			print(event)
-			print(type(event)) # MouseEvent
-			print(event.button, event.step)
-
+			#### REMOVE #### QtYetiLogger(QT_YETI.MESSAGE,f"Event {event}, Event Type: {type(event)}, Event Button: {event.button}, Event Step: {event.step}")
 			new_index = int(np.clip(self.active_order_index + int(event.step),a_min=1,a_max=len(self.CurrentSpectrogram.order_list)-1))
-
 			self.active_order_index = new_index
 			self.update_spectrum(self.active_order_index)
 
@@ -441,14 +435,6 @@ class TabSpectrometer(QWidget):
 		self.spectrogram_filename = requested_filename
 		self.intensity_max.setValue(int_max)
 		self.intensity_min.setValue(int_min)
-		# self.x_max.setValue(self.figure_canvas.CurrentSpectrogram.xsize-1)
-		# self.y_max.setValue(self.figure_canvas.CurrentSpectrogram.ysize-1)
-		# self.x_min.setValue(0)
-		# self.y_min.setValue(0)
-		x_min, y_min = 0, 0
-		x_max, y_max = self.figure_canvas.CurrentSpectrogram.xsize-1, self.figure_canvas.CurrentSpectrogram.ysize-1
-		self.figure_canvas.axes_spectrogram.set_xlim(x_min, x_max)
-		self.figure_canvas.axes_spectrogram.set_ylim(y_min, y_max)
 		print(self.figure_canvas.CurrentSpectrogram)
 
 	@pyqtSlot()
@@ -460,7 +446,6 @@ class TabSpectrometer(QWidget):
 	def gui_intensity_changed(self):
 		max = self.intensity_max.value()
 		min = self.intensity_min.value()
-		#### REMOVE #### QtYetiLogger(QT_YETI.MESSAGE,f"New Intensity Range: {min,max}",True)
 		if( min < max):
 			self.figure_canvas.update_intensities(min, max)
 
@@ -524,9 +509,13 @@ class TabSpectrometer(QWidget):
 		self.current_order_spinbox_value = self.figure_canvas.update_spectrum(new_value -1) +1
 
 		self.current_order_spinbox.setValue( self.current_order_spinbox_value )
-		# self.current_order_spinbox.setValue( self.figure_canvas.update_spectrum( self.current_order_spinbox.value() -1) +1)
 
 	def gui_update_summation(self, new_item_string: str):
+		"""
+		Update summation method for data extraction.
+		#### Parameters:
+			`new_item_string` (str): String that was chosen in the GUI is sent into this slot as parameter
+		"""
 		self.figure_canvas.summation_method = QT_YETI.SUMMATIONS[new_item_string]
 
 class SpectrometerSettings(QWidget):

@@ -82,9 +82,7 @@ if __name__ == '__main__':
 		• Fitting of traces with weighting. Flatfield images tend to become darker at the edges of an image on simple Echelles.\r\n\
 			• Make a combobox the tracer window for standard (unweighted) and weighted trace fitting\r\n\
 		• [50%] Exporting orders to FITs\r\n\
-		• Update spectrogram plot extent in MPLCanvas class\r\n\
 		• Imageslicer summation-direction is currently hardcoded. What if the spectrum is flipped and the main order is above or below\r\n\
-		• Make floating Hardware Settings available via actions menu and shortcut\r\n\
 		• Load ThAr into Calibrator Tab, click on ThAr Peak and give this order the absolute m number via a window\r\n\
 		• [50%] Improve and unify plotting behaviour. It's a mess.\r\n\
 			• Pass Plot Objects? → identify, and change axes limits accordingly\r\n\
@@ -98,22 +96,24 @@ if __name__ == '__main__':
 		• Test data for github and documentation\r\n\
 		• Calibration of orders\r\n\
 			• Think of calibrating on 1D Spectrum level\r\n\
+		• TracerSettings to be read into QT_YETI_Settings\r\n\
+		• Make floating Hardware Settings available via actions menu and shortcut\r\n\
 		• Slit height for extraction might be a function of the order to improve SNR\r\n\
 		• Geometric Calibrator Settings in qt_yeti_settings.ini\r\n\
-		• Refactor Tabs/Canvases into more abstract classes\r\n\
-		• TracerSettings to be read into QT_YETI_Settings\r\n\
 		• Sort Hardware & Settings\r\n\
 		• Add Multithreading → e.g. when tracing in precision mode\r\n\
 		• INI File + Class for designs of plots and tabs.\r\n\
 		• Unify DocStrings\r\n\
 		• Check the includion of PathLib\r\n\
 		• [50%] Synchonize scrolling in canvas and order number - Still a little hacky\r\n\
-		• ConfigParser & SafeConfigParser - check deprecation\r\n\
 		• call it trace or order? → Rename the Order Class to Trace?\r\n\
 		• Check: Remove Point class and use Spot class\r\n\
 		• Think of single spectrum viewer via bintables or other means\r\n\
+		• Refactor Tabs/Canvases into more abstract classes\r\n\
 		• ...\r\n"
 	
+		# • [done] Update spectrogram plot extent in MPLCanvas class → load spectrogram of canvas.\r\n\
+		# • [done] ConfigParser & SafeConfigParser - check deprecation\r\n\
 		# • [done] Make Hardware Settings floatable\r\n\
 		# • [done] Image bit-ness via what is written in the FITS file! \r\n\
 		# • [done] Extraction: Summation method needs to be an entry in an itemBox().\r\n\

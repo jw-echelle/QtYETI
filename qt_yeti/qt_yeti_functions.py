@@ -1624,12 +1624,15 @@ def save_single_order_to_fits(filename: str, PreviousHeader: fits.Header, order_
 		QtYetiLogger(QT_YETI.ERROR,"Please load a valid FITS file.")
 		return
 	
-	NewHeader = PreviousHeader
+	# Acquire the current header and copy it.
+	NewHeader = PreviousHeader.copy(strip=True)
 	try:
 		del NewHeader["NAXIS2"]
 	except:
-		QtYetiLogger(QT_YETI.MESSAGE,"NAXIS2 already removed")
+		# QtYetiLogger(QT_YETI.MESSAGE,"NAXIS2 already removed")
+		pass
 	
+	# Modify and add new keys / cards
 	NewHeader["NAXIS"]= 1
 	NewHeader["NAXIS1"] = len(x_axis)
 	NewHeader["BITPIX"] = -64
@@ -1639,6 +1642,7 @@ def save_single_order_to_fits(filename: str, PreviousHeader: fits.Header, order_
 	NewHeader.append(("ORDER",order_number,"Physical order m"), end=True)
 	NewHeader.append(("SUMWIDTH", summation_width, "No. of pixels used for summation."))
 
+	# Join header and data
 	PrimaryHDU = fits.PrimaryHDU( data=spectrum.astype(np.float64), header=NewHeader )
 	PrimaryHDU.add_checksum()
 
@@ -1811,7 +1815,7 @@ def grating_β(m, λ, d, α, γ) -> np.ndarray:
 
 def refraction_on_surface(normalized_beam_vector: np.ndarray, surface_normal: np.ndarray, refractive_index_1, refractive_index_2) -> np.ndarray:
 	"""
-	Snell's law in vector form
+	Snell's law in vector form. Thats where the magic happens
 	--------------------------
 	"""
 	k_i = np.asarray(normalized_beam_vector)
