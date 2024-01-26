@@ -320,12 +320,15 @@ class TabSpectrometer(QWidget):
 		# Setup and customize
 		self.setupTabStructure()
 		self.customizeTab()
+		self.connect_slots()
 		
-		# for child in self.findChildren((QWidget, QPushButton, QSpinBox)):
+		# for child in self.findChildren((QPushButton, QSpinBox)):
 		# 	child.setFocusPolicy(Qt.NoFocus)
-		# self.setFocusPolicy(Qt.NoFocus)
-
-		self.figure_canvas.draw()
+		# self.setFocusPolicy(Qt.ClickFocus)
+		# self.setFocus(Qt.NoFocusReason)
+		# self.activateWindow()
+		self.setFocusPolicy(Qt.StrongFocus)
+		self.setFocus()
 
 	def setupTabStructure(self):
 		# Top Level Tab layout
@@ -406,6 +409,7 @@ class TabSpectrometer(QWidget):
 		self.intensity_max.setValue(np.int32(self.figure_canvas.CurrentSpectrogram.intmax))
 		self.intensity_min.setValue(np.int32(self.figure_canvas.CurrentSpectrogram.intmin))
 
+	def connect_slots(self):
 		### ### ### Connect signals/slots ### ### ###
 		self.intensity_max.valueChanged.connect(self.gui_intensity_changed)
 		self.intensity_min.valueChanged.connect(self.gui_intensity_changed)
@@ -437,10 +441,10 @@ class TabSpectrometer(QWidget):
 		self.spectrogram_filename = requested_filename
 		self.intensity_max.setValue(int_max)
 		self.intensity_min.setValue(int_min)
-		# self.x_max.setValue(self.figure_canvas.CurrentSpectrogram.xsize-1)
-		# self.y_max.setValue(self.figure_canvas.CurrentSpectrogram.ysize-1)
-		# self.x_min.setValue(0)
-		# self.y_min.setValue(0)
+		self.x_max.setValue(self.figure_canvas.CurrentSpectrogram.xsize-1)
+		self.y_max.setValue(self.figure_canvas.CurrentSpectrogram.ysize-1)
+		self.x_min.setValue(0)
+		self.y_min.setValue(0)
 		print(self.figure_canvas.CurrentSpectrogram)
 
 	@pyqtSlot()

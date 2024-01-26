@@ -94,7 +94,10 @@ if __name__ == '__main__':
 		• [25%] Blaze-Correction\r\n\
 			• Added Flatfield as Reference Spectrogram\r\n\
 			• Science data needs to be added\r\n\
+		• Test data for github and documentation\r\n\
 		• Calibration of orders\r\n\
+			• Think of calibrating on 1D Spectrum level\r\n\
+		• Slit height for extraction might be a function of the order to improve SNR\r\n\
 		• Geometric Calibrator Settings in qt_yeti_settings.ini\r\n\
 		• Refactor Tabs/Canvases into more abstract classes\r\n\
 		• TracerSettings to be read into QT_YETI_Settings\r\n\

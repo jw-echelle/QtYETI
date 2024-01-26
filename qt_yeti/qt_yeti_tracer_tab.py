@@ -111,7 +111,7 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		evt_y = np.int32(np.rint(event.ydata))
 
 		# Add a new point to the order list
-		if( isinstance(event, matplotlib.backend_bases.MouseEvent) and event.key is "shift"):
+		if( isinstance(event, matplotlib.backend_bases.MouseEvent) and event.key == "shift"):
 			print(f"shift + click")
 			# Dont proceed of no order dots present
 			if( not self.CurrentSpectrogram.order_centers_list ):
@@ -419,9 +419,9 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		Spectrogram.load_order_information(requested_filename)
 
 # Tracer Window
-class TracerSettingWindow(QWidget):
+class TracerSettingsWindow(QWidget):
 	def __init__(self, MPLCanvas: FlatfieldCanvas):
-		super(TracerSettingWindow, self).__init__(parent=None)
+		super(TracerSettingsWindow, self).__init__(parent=None)
 		
 		self.setWindowTitle(QT_YETI.TRACER_WINDOW_NAME)
 		#self.setGeometry(QRect(10,10,10,10))
@@ -430,12 +430,21 @@ class TracerSettingWindow(QWidget):
 		self.setWindowIcon(QIcon(QT_YETI.IMAGE_PATH))
 
 		self.setup_tracer_window()
+		self.connect_slots()
 
 		self.canvas = MPLCanvas
 		self.CurrentSettings = -1
 		self.load_tracer_settings_from_file()
 		#### HACK #### → Include this into TracerSettings()
 		self.precision_tracing_mode = False 
+
+		# for child in self.findChildren((QPushButton, QSpinBox)):
+		# 	child.setFocusPolicy(Qt.NoFocus)
+		# self.setFocusPolicy(Qt.ClickFocus)
+		# self.setFocus(Qt.NoFocusReason)
+		# self.activateWindow()
+		self.setFocusPolicy(Qt.StrongFocus)
+		self.setFocus()
 
 	def setup_tracer_window(self):
 		self.tracer_window_layout = QVBoxLayout()
@@ -459,7 +468,7 @@ class TracerSettingWindow(QWidget):
 		self.load_settings_btn = QPushButton("Load Settings")
 		self.save_settings_btn = QPushButton("Save Settings")
 		self.trace_btn = QPushButton("Start Tracing")
-		self.visible_traces = QCheckBox("View / Hide tracer lines")
+		self.visible_traces = QCheckBox("View / Hide Tracer Lines")
 
 		self.abs_order_number_m_direction_down_btn.setChecked(True)
 		self.tracing_mode_box.addItems(QT_YETI.TRACING_MODES)
@@ -536,24 +545,38 @@ class TracerSettingWindow(QWidget):
 		#	child.setMinimumWidth(QT_YETI.SPIN_BOX_MIN_WIDTH)
 		#	child.setRange(-1*qspinboxlimit, qspinboxlimit)
 
+	def connect_slots(self):
 		# Signals/Slots
-		self.abs_order_number_m_direction_down_btn.clicked.connect(self.update_current_settings)
-		self.abs_order_number_m_direction_up_btn.clicked.connect(self.update_current_settings)
-		self.tracing_mode_box.currentTextChanged.connect(self.update_tracing_mode)
 		self.save_settings_btn.clicked.connect(self.save_tracer_settings_to_file)
 		self.load_settings_btn.clicked.connect(self.load_tracer_settings_from_file)
+
 		self.trace_btn.clicked.connect(self.start_tracer)
+
 		self.visible_traces.toggled.connect(self.toggle_tracer_line_visiblity)
+		self.first_absolute_order_box.editingFinished.connect(self.update_tracer_settings)
+		self.abs_order_number_m_direction_down_btn.clicked.connect(self.update_tracer_settings)
+		self.abs_order_number_m_direction_up_btn.clicked.connect(self.update_tracer_settings)
+		# self.spotsize_box.editingFinished.connect(self.update_tracer_settings)
+		# self.image_slicer_box.editingFinished.connect(self.update_tracer_settings)
+		# self.image_slicer_separation_box.editingFinished.connect(self.update_tracer_settings)
+		self.distance_to_image_edge_box.editingFinished.connect(self.update_tracer_settings)
+		self.samples_per_order_box.editingFinished.connect(self.update_tracer_settings)
+		self.peak_distance_box.editingFinished.connect(self.update_tracer_settings)
+		self.peak_height_box.editingFinished.connect(self.update_tracer_settings)
+		self.peak_prominence_box.editingFinished.connect(self.update_tracer_settings)
+		self.peak_width_box.editingFinished.connect(self.update_tracer_settings)
+		self.tracing_mode_box.currentTextChanged.connect(self.update_tracing_mode)
+		# self.tracing_mode_box.editingFinished.connect(self.update_tracer_settings)
+		self.smoothing_stiffness_box.editingFinished.connect(self.update_tracer_settings)
+		self.smoothing_order_box.editingFinished.connect(self.update_tracer_settings)
 
 	def update_controls(self):
 		"""
-		`TracerSettingsWindow.update_controls()`
-
-		Method → update_controls()
-		--------------------------
 		Update all Qt buttons and boxes from the settings file
-		"""
 
+		#### Raises:
+			`ValueError`: Raised when the button ends up in an unititialized state through an unknown error.
+		"""
 		self.spotsize_box.setValue(					self.CurrentSettings.spotsize_px)
 		self.image_slicer_box.setChecked(			self.CurrentSettings.image_slicer)
 		self.image_slicer_separation_box.setValue(	self.CurrentSettings.image_slicer_separation_px)
@@ -582,19 +605,14 @@ class TracerSettingWindow(QWidget):
 		self.precision_tracing_mode = QT_YETI.TRACING_MODES[new_item_string]
 
 	@pyqtSlot()
-	def update_current_settings(self):
+	def update_tracer_settings(self):
 		"""
 		Update CurrentSettings (TracerSettings) from Qt button and box inputs
 
 		#### Raises:
 			`ValueError`: Raised when the button ends up in an unititialized state through an unknown error.
-		"""		
-		self.CurrentSettings.spotsize = 					self.spotsize_box.value()
-		self.CurrentSettings.image_slicer = 				self.image_slicer_box.isChecked()
-		self.CurrentSettings.image_slicer_separation_px = 	self.image_slicer_separation_box.value()
-
-		self.CurrentSettings.first_absolute_order = 		self.first_absolute_order_box.value()
-		# Handle radio buttons
+		"""
+		# Handle radio buttons first
 		current_down_btn_value = self.abs_order_number_m_direction_down_btn.isChecked()
 		current_up_btn_value = self.abs_order_number_m_direction_up_btn.isChecked()
 
@@ -613,6 +631,10 @@ class TracerSettingWindow(QWidget):
 		self.CurrentSettings.abs_order_number_m_direction = direction_value
 		QT_YETI.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION = direction_value
 
+		self.CurrentSettings.first_absolute_order = 		self.first_absolute_order_box.value()
+		self.CurrentSettings.spotsize = 					self.spotsize_box.value()
+		self.CurrentSettings.image_slicer = 				self.image_slicer_box.isChecked()
+		self.CurrentSettings.image_slicer_separation_px = 	self.image_slicer_separation_box.value()
 		self.CurrentSettings.distance_to_edge = 			self.distance_to_image_edge_box.value()
 		self.CurrentSettings.samples_per_order = 			self.samples_per_order_box.value()
 		self.CurrentSettings.peak_distance_px = 			self.peak_distance_box.value()
@@ -634,7 +656,7 @@ class TracerSettingWindow(QWidget):
 		"""
 		Save the current state to the settings ini file
 		"""
-		self.update_current_settings()
+		self.update_tracer_settings()
 		self.CurrentSettings.to_file()
 		self.canvas.TracerSettings = self.CurrentSettings
 
@@ -654,10 +676,10 @@ class TracerSettingWindow(QWidget):
 		self.canvas.tracer_lines_set_visibility(visible)
 
 	def show(self):
-		super(TracerSettingWindow, self).show()
+		super(TracerSettingsWindow, self).show()
 	
 	def closeEvent(self,event):
-		super(TracerSettingWindow,self).closeEvent(event)
+		super(TracerSettingsWindow,self).closeEvent(event)
 
 # Tab for MainWindow
 class TabOrderTracer(QWidget):
@@ -666,11 +688,12 @@ class TabOrderTracer(QWidget):
 
 		# Create Matplotlib Canvas
 		self.figure_canvas = FlatfieldCanvas(parent=self)
-		self.TracerWindow = TracerSettingWindow(self.figure_canvas)
+		self.TracerWindow = TracerSettingsWindow(self.figure_canvas)
 
 		# Setup and customize
 		self.setupTabStructure()
 		self.customizeTab()
+		self.connect_slots()
 
 		self.spectrogram_filename = ""
 
@@ -681,8 +704,6 @@ class TabOrderTracer(QWidget):
 		# self.activateWindow()
 		self.setFocusPolicy(Qt.StrongFocus)
 		self.setFocus()
-
-		self.figure_canvas.draw()
 
 	def setupTabStructure(self):
 		# Top Level Tab layout
@@ -788,6 +809,7 @@ class TabOrderTracer(QWidget):
 		self.y_max.setValue(self.figure_canvas.CurrentSpectrogram.yrange.max())
 		self.y_min.setValue(self.figure_canvas.CurrentSpectrogram.yrange.min())
 
+	def connect_slots(self):
 		### ### ### Connect signals/slots ### ### ###
 		self.intensity_max.valueChanged.connect(self.gui_intensity_changed)
 		self.intensity_min.valueChanged.connect(self.gui_intensity_changed)

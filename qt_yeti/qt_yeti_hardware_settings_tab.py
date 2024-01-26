@@ -25,6 +25,7 @@ class TabHardwareSettings(QWidget):
 
 		self.setupTabStructure()
 		self.customizeTab()
+		self.connect_slots()
 		
 		self.read_settings_data()
 
@@ -102,6 +103,7 @@ class TabHardwareSettings(QWidget):
 		self.hardware_form_layout.addRow(self.action_read_button, self.action_save_button)
 		self.hardware_form_layout.addRow(self.action_float_button)
 
+	def connect_slots(self):
 		# Signals / Slots
 		self.action_read_button.clicked.connect(self.read_settings_data)
 		self.action_save_button.clicked.connect(self.save_settings_data)

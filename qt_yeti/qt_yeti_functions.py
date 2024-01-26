@@ -590,6 +590,7 @@ class GernericTab(QWidget):
 		# Setup and customize
 		self.setupTabStructure()
 		self.customizeTab()
+		self.connect_slots()
 		
 		for child in self.findChildren((QWidget, QPushButton, QSpinBox)):
 			child.setFocusPolicy(Qt.NoFocus)
@@ -636,7 +637,8 @@ class GernericTab(QWidget):
 		self.control_panel_layout.addWidget(self.action_load_coefficients_btn,0,2)
 		self.control_panel_layout.addWidget(self.action_save_currentorder_btn,0,3)
 		self.control_panel_layout.addWidget(self.action_save_allorders_btn,0,4)
-
+		
+	def connect_slots(self):
 		# connect Signals/Slots
 		self.current_order_spinbox.editingFinished.connect(self.gui_set_order_index)
 		self.current_order_spinbox.valueChanged.connect(self.gui_set_order_index)
@@ -1238,6 +1240,8 @@ def echelle_order_tracer(CurrentSpectrogram: Spectrogram, CurrentTracerSettings:
 		max_intensity = intensity_array.max()
 		normalized_spectrum = intensity_array/max_intensity
 
+		max_idx, max_amplitude = middle_index, max_intensity
+
 		# Example: Fit between -7, -6 ... 0 ... 6, 7 to keep values small.
 		# Optimally, the maximum should be at index 7 in this case
 		try:
@@ -1247,11 +1251,12 @@ def echelle_order_tracer(CurrentSpectrogram: Spectrogram, CurrentTracerSettings:
 			# time.sleep(5)
 			# quit()
 
-		except Exception as Error:
-			QtYetiLogger(QT_YETI.ERROR, f"{Error}", True)
+			max_idx = np.argmax(order_fit_function(fit_range, *fit_output))
+			max_amplitude = order_fit_function(max_idx, *fit_output)
 
-		max_idx = np.argmax(order_fit_function(fit_range, *fit_output))
-		max_amplitude = order_fit_function(max_idx, *fit_output)
+		except Exception as Error:
+			QtYetiLogger(QT_YETI.ERROR, f"Entering fallback function: {Error}", True)
+			max_idx, max_amplitude = _find_argmax_and_average_along_y(intensity_array)
 
 		return max_idx, max_amplitude
 
@@ -1290,7 +1295,7 @@ def echelle_order_tracer(CurrentSpectrogram: Spectrogram, CurrentTracerSettings:
 
 			#### DEBUG ####
 			if(center_idx < SEARCH_INTERVAL):
-				QtYetiLogger(QT_YETI.ERROR, f"Center IDX = {center_idx} has gotten out of bounds.")
+				QtYetiLogger(QT_YETI.ERROR, f"Center IDX = {center_idx} has gotten out of bounds because a trace of an order might have left the image.")
 
 			index_range = slice(center_idx - SEARCH_INTERVAL, center_idx + SEARCH_INTERVAL + 1, 1)
 			spec_of_interest = np.squeeze(SPECTROGRAM[index_range, jdx])
@@ -1303,10 +1308,10 @@ def echelle_order_tracer(CurrentSpectrogram: Spectrogram, CurrentTracerSettings:
 				found_idx, max_int_avg = Intensity_Maximum_Search_Function(spec_of_interest)
 
 			except ValueError as Error:
-				QtYetiLogger(QT_YETI.ERROR, f"Error in Tracer: {Error}.", True)
+				QtYetiLogger(QT_YETI.ERROR, f"Error in Tracer echelle_order_tracer(): {Error}.")
 				QtYetiLogger(QT_YETI.ERROR,\
-				 f"search_interval = {SEARCH_INTERVAL}"\
-				 f"index_range = {np.asarray(index_range)} & "
+				 f"search_interval = {SEARCH_INTERVAL} → "\
+				 f"index_range = {np.asarray(index_range)} → "
 				 f"Spectrum Size = {spec_of_interest.shape}"\
 				)
 				pass

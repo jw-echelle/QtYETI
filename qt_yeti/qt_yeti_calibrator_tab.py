@@ -586,14 +586,15 @@ class TabCalibrator(QWidget):
 		# Setup and customize
 		self.setupTabStructure()
 		self.customizeTab()
+		self.connect_slots()
 		
-		# for child in self.findChildren((QWidget, QPushButton, QSpinBox)):
+		# for child in self.findChildren((QPushButton, QSpinBox)):
 		# 	child.setFocusPolicy(Qt.NoFocus)
-		# self.setFocusPolicy(Qt.NoFocus)
+		# self.setFocusPolicy(Qt.ClickFocus)
+		# self.setFocus(Qt.NoFocusReason)
+		# self.activateWindow()
 		self.setFocusPolicy(Qt.StrongFocus)
 		self.setFocus()
-
-		self.figure_canvas.draw()
 
 	def setupTabStructure(self):
 		# Top Level Tab layout
@@ -681,9 +682,6 @@ class TabCalibrator(QWidget):
 		self.current_order_spinbox.editingFinished.connect(self.gui_set_order_index)
 		self.current_order_spinbox.valueChanged.connect(self.gui_set_order_index)
 
-		# Signal connected at QPushButton creation. Example below:
-		# self.action_load_spectrogram_btn.clicked.connect(self.gui_load_spectrogram_file)
-
 		# Additional features
 		self.calibrator_widget = QWidget()
 		self.calibrator_widget.setContentsMargins(0,0,0,0)
@@ -705,6 +703,11 @@ class TabCalibrator(QWidget):
 
 		# Instance of Geometric Calibrator Tool
 		self.CalibratorTool = GeometricCalibratorWindow(self.figure_canvas)
+
+	def connect_slots(self):
+		# Signal connected at QPushButton creation. Example below:
+		# self.action_load_spectrogram_btn.clicked.connect(self.gui_load_spectrogram_file)
+		pass
 	
 	# Signals / Slots
 	@pyqtSlot()
@@ -726,10 +729,10 @@ class TabCalibrator(QWidget):
 		self.spectrogram_filename = requested_filename
 		self.intensity_max.setValue(int_max)
 		self.intensity_min.setValue(int_min)
-		# self.x_max.setValue(self.figure_canvas.CurrentSpectrogram.xsize-1)
-		# self.y_max.setValue(self.figure_canvas.CurrentSpectrogram.ysize-1)
-		# self.x_min.setValue(0)
-		# self.y_min.setValue(0)
+		self.x_max.setValue(self.figure_canvas.CurrentSpectrogram.xsize-1)
+		self.y_max.setValue(self.figure_canvas.CurrentSpectrogram.ysize-1)
+		self.x_min.setValue(0)
+		self.y_min.setValue(0)
 		print(self.figure_canvas.CurrentSpectrogram)
 
 	@pyqtSlot()
