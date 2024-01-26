@@ -15,13 +15,16 @@ Everything has been tested in a native python environment. Currently we have no 
 > pip install --upgrade setuptools  
 > pip install -r requirements.txt  
 
-### Start QtYETI
+### Start QtYeti
 • Navigate to the directory where QtYETI has been extracted to  
 • Start the program via
 > python ./QtYeti.py
 
 ### Features
 In the `Calibration` Tab you can find a geometric calibrator that has been used to sucessfully predict ThAr lines in <a target="_blank" rel="noopener noreferrer" href="https://arxiv.org/abs/2401.00105">our manuscript</a>.
+
+### Quick Start ###
+Check out the <a target="_blank" rel="noopener noreferrer" href="Documentation/QuickStart.md">QuickStart.md</a> documentation.
 
 ### Tested Operating Systems
 • Windows 10/11 64bit  
