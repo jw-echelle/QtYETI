@@ -29,163 +29,6 @@ plt.rcParams['ytick.minor.width'] = 0.5
 plt.rcParams['font.size']=7
 plt.rcParams['font.family']='sans-serif'
 
-QT_YETI = 0
-class QtYetiSettings:
-	_instance = None
-	def __new__(cls):
-		if cls._instance is None:
-			cls._instance = super().__new__(cls)
-			
-			cls.initialize_variables(cls)
-			cls.readHardwareConfig(cls)
-			cls.readTracerConfig(cls)
-
-			cls.ReferenceData=QtYetiReferenceSpectrograms()
-
-		return cls._instance
-
-	def initialize_variables(self):
-		self.WINDOW_NAME = "QtYETI - Yeti\'s Extra-Terrestrial Investigations."
-		self.WINDOW_WIDTH = 1344
-		self.WINDOW_HEIGHT = 800
-
-		self.TRACER_WINDOW_NAME = "QtYETI - Order Tracer Settings"
-		self.TRACER_WINDOW_WIDTH = 256
-		self.TRACER_WINDOW_HEIGHT = 256
-
-		self.CALIBRATOR_WINDOW_NAME = "QtYETI - Geometric Calibrator"
-		self.CALIBRATOR_WINDOW_WIDTH = 512
-		self.CALIBRATOR_WINDOW_HEIGHT = 256
-
-		self.MATPLOTLIB_DPI = 128
-		self.MATPLOTLIB_XY_LIM_SCALE = 1.2
-		self.MATPLOTLIB_CANVAS_WIDTH = 10 # times 100 or dpi
-		self.MATPLOTLIB_CANVAS_HEIGHT = 8 # times 100 or dpi
-
-		self.SPIN_BOX_MIN_WIDTH = 80
-		self.SPIN_BOX_MAX_WIDTH = 256
-
-		self.IMAGE_PATH = "./qt_yeti/yeti.png"
-		self.SETTINGS_INI_PATH = "./qt_yeti_settings.ini"
-
-		self.MESSAGE = 0
-		self.WARNING = 1
-		self.ERROR = -1
-
-		self.ANNOTATION_X_COORDINATE = 42
-
-		self.SUMMATIONS = {\
-			"Extraction: Simple Sum":"simple_sum",\
-			"Extraction: On Trace Center":"order_center_pixel",\
-			"Extraction: Square-root weighted":"sqrt_weighted_sum",\
-			"Extraction: Optimal Extraction":"optimal"\
-		}
-
-		self.TRACING_MODES = {\
-			"Maximum": False,\
-			"Fitted": True\
-		}
-
-	def readHardwareConfig(self):
-		try:
-			config = configparser.ConfigParser()
-			config.optionxform=str
-			config.read(self.SETTINGS_INI_PATH)
-
-			self.SPECTROMETER_GRATING_DENSITY_PER_MM = config.getint("HARDWARE.Spectrometer","SpectrometerGratingDensityLpMM")
-			self.SPECTROMETER_GRATING_ANGLE_DEG = config.getfloat("HARDWARE.Spectrometer","SpectrometerGratingAngleDeg")
-			self.SPECTROMETER_GRATING_INCIDENT_INPLANE_ANGLE_DEG = config.getfloat("HARDWARE.Spectrometer","SpectrometerGratingInplaneAngleDeg")
-			self.SPECTROMETER_GRATING_INCIDENT_OUTOFPLANE_ANGLE_DEG = config.getfloat("HARDWARE.Spectrometer","SpectrometerGratingOutofplaneAngleDeg")
-			self.SPECTROMETER_GRATING_OUTGOING_ANGLE_DEG = config.getfloat("HARDWARE.Spectrometer","SpectrometerGratingOutgoingAngleDeg")
-
-			self.SPECTROMETER_HAS_IMAGE_SLICER = config.getboolean("HARDWARE.Spectrometer","SpectrometerHasImageslicer")
-			self.SPECTROMETER_IMAGE_SLICER_TRACES_PER_ORDER = config.getint("HARDWARE.Spectrometer","SpectrometerImageslicerTracesPerOrder")
-			self.SPECTROMETER_IMAGE_SLICER_TRACE_SUFFIX = config.getfloat("HARDWARE.Spectrometer","SpectrometerImageslicerTraceSuffix")
-			self.SPECTROMETER_IMAGE_SLICER_SEPARATION_PX = config.getint("HARDWARE.Spectrometer","SpectrometerImageslicerSeparationPixels")
-
-			self.DETECTOR_FOCAL_LENGTH_MM = config.getfloat("HARDWARE.Detector","DetectorFocalLengthMM")
-			self.DETECTOR_INPLANE_ANGLE_DEG = config.getfloat("HARDWARE.Detector","DetectorInplaneAngleDeg")
-			self.DETECTOR_OUTOFPLANE_ANGLE_DEG = config.getfloat("HARDWARE.Detector","DetectorOutofplaneAngleDeg")
-			self.DETECTOR_X_PIXELS = config.getint("HARDWARE.Detector","DetectorXPixels")
-			self.DETECTOR_Y_PIXELS = config.getint("HARDWARE.Detector","DetectorYPixels")
-			self.DETECTOR_PIXEL_SIZE_UM = config.getfloat("HARDWARE.Detector","DetectorPixelSizeUM")
-			self.DETECTOR_PIXEL_BINNING = config.getint("HARDWARE.Detector","DetectorPixelBinning")
-			self.DETECTOR_SPOT_SIZE_PX = config.getint("HARDWARE.Detector","DetectorSpotSizePixels")
-			self.DETECTOR_BIT_DEPTH = config.getint("HARDWARE.Detector","DetectorBitDepth")
-			self.DETECTOR_MAX_INTENSITY = np.power(2,self.DETECTOR_BIT_DEPTH)-1
-			self.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION = config.get("HARDWARE.Detector","DetectorOrderNumberMagnitudeIncreaseDirection")
-
-			del config
-			return 0
-		
-		except BaseException as be:
-			print(f"Caught exception: {be} in file: {__file__}")
-			return -666
-
-	def writeHardwareConfig(self):
-		try:
-			config = configparser.ConfigParser()
-			config.optionxform=str
-			config.read(self.SETTINGS_INI_PATH)
-
-			config.set("HARDWARE.Spectrometer","SpectrometerGratingDensityLpMM",f"{self.SPECTROMETER_GRATING_DENSITY_PER_MM}")
-			config.set("HARDWARE.Spectrometer","SpectrometerGratingAngleDeg",f"{self.SPECTROMETER_GRATING_ANGLE_DEG}")
-			config.set("HARDWARE.Spectrometer","SpectrometerGratingInplaneAngleDeg",f"{self.SPECTROMETER_GRATING_INCIDENT_INPLANE_ANGLE_DEG}")
-			config.set("HARDWARE.Spectrometer","SpectrometerGratingOutofplaneAngleDeg",f"{self.SPECTROMETER_GRATING_INCIDENT_OUTOFPLANE_ANGLE_DEG}")
-			config.set("HARDWARE.Spectrometer","SpectrometerGratingOutgoingAngleDeg",f"{self.SPECTROMETER_GRATING_OUTGOING_ANGLE_DEG}")
-
-			config.set("HARDWARE.Spectrometer","SpectrometerHasImageslicer",f"{self.SPECTROMETER_HAS_IMAGE_SLICER}")
-			config.set("HARDWARE.Spectrometer","SpectrometerImageslicerTracesPerOrder",f"{self.SPECTROMETER_IMAGE_SLICER_TRACES_PER_ORDER}")
-			config.set("HARDWARE.Spectrometer","SpectrometerImageslicerTraceSuffix",f"{self.SPECTROMETER_IMAGE_SLICER_TRACE_SUFFIX}")
-			config.set("HARDWARE.Spectrometer","SpectrometerImageslicerSeparationPixels",f"{self.SPECTROMETER_IMAGE_SLICER_SEPARATION_PX}")
-
-			config.set("HARDWARE.Detector","DetectorFocalLengthMM",f"{self.DETECTOR_FOCAL_LENGTH_MM}")
-			config.set("HARDWARE.Detector","DetectorInplaneAngleDeg",f"{self.DETECTOR_INPLANE_ANGLE_DEG}")
-			config.set("HARDWARE.Detector","DetectorOutofplaneAngleDeg",f"{self.DETECTOR_OUTOFPLANE_ANGLE_DEG}")
-			config.set("HARDWARE.Detector","DetectorXPixels",f"{self.DETECTOR_X_PIXELS}")
-			config.set("HARDWARE.Detector","DetectorYPixels",f"{self.DETECTOR_Y_PIXELS}")
-			config.set("HARDWARE.Detector","DetectorPixelSizeUM",f"{self.DETECTOR_PIXEL_SIZE_UM}")
-			config.set("HARDWARE.Detector","DetectorPixelBinning",f"{self.DETECTOR_PIXEL_BINNING}")
-			config.set("HARDWARE.Detector","DetectorSpotSizePixels",f"{self.DETECTOR_SPOT_SIZE_PX}")
-			config.set("HARDWARE.Detector","DetectorBitDepth",f"{self.DETECTOR_BIT_DEPTH}")
-			config.set("HARDWARE.Detector","DetectorOrderNumberMagnitudeIncreaseDirection",f"{self.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION}")
-			
-			with open(QT_YETI.SETTINGS_INI_PATH, 'w') as configfile:
-				config.write(configfile)
-			del config
-
-			return 0
-		
-		except BaseException as be:
-			print(f"Caught exception: {be} in file: {__file__}")
-			return -666
-
-	def readTracerConfig(self):
-		...
-	
-	def writeTracerConfig(self):
-		...
-
-class QtYetiReferenceSpectrograms:
-	_instance = None
-	def __new__(cls):
-		if cls._instance is None:
-			cls._instance = super().__new__(cls)
-
-			cls.create_spectrograms(cls)
-
-		return cls._instance
-
-	def create_spectrograms(self):
-		self.Flatfield = -1
-		self.Darkfield = -1
-		self.Sciencedata = -1
-
-
-""" Initialize Class for settings """
-QT_YETI = QtYetiSettings()
-
-#%%
 ###############################################################################################################################
 
 def qt_yeti_suppress_qt_warnings():
@@ -202,7 +45,7 @@ class YetiColors:
 	ORANGE="#E67700"
 	YELLOW="#DDDD00"
 	MIDAS_GREEN="#00AA00"
-	YETI_WHITE = "#DDDDDD"
+	YETI_GREY = "#DDDDDD"
 
 # https://stackoverflow.com/questions/287871/how-do-i-print-colored-text-to-the-terminal
 # Check also module: colorama
@@ -242,6 +85,259 @@ def elapsed_time(timed_function: object):
 		return return_value
 	return wrapper
 
+###############################################################################################################################
+
+QT_YETI = 0
+
+class QtYetiSettings:
+	_instance = None
+
+	WINDOW_NAME = "QtYETI - Yeti\'s Extra-Terrestrial Investigations."
+	WINDOW_WIDTH = 1344
+	WINDOW_HEIGHT = 800
+
+	TRACER_WINDOW_NAME = "QtYETI - Order Tracer Settings"
+	TRACER_WINDOW_WIDTH = 256
+	TRACER_WINDOW_HEIGHT = 256
+
+	CALIBRATOR_WINDOW_NAME = "QtYETI - Geometric Calibrator"
+	CALIBRATOR_WINDOW_WIDTH = 512
+	CALIBRATOR_WINDOW_HEIGHT = 256
+
+	MATPLOTLIB_DPI = 128
+	MATPLOTLIB_XY_LIM_SCALE = 1.2
+	MATPLOTLIB_CANVAS_WIDTH = 10 # times 100 or dpi
+	MATPLOTLIB_CANVAS_HEIGHT = 8 # times 100 or dpi
+
+	SPIN_BOX_MIN_WIDTH = 80
+	SPIN_BOX_MAX_WIDTH = 256
+
+	IMAGE_PATH = "./qt_yeti/yeti.png"
+	SETTINGS_INI_PATH = "./qt_yeti_settings.ini"
+
+	MESSAGE = 0
+	WARNING = 1
+	ERROR = -1
+
+	ANNOTATION_X_COORDINATE = 42
+
+	SUMMATIONS = {\
+		"Extraction: Simple Sum":"simple_sum",\
+		"Extraction: On Trace Center":"order_center_pixel",\
+		"Extraction: Square-root weighted":"sqrt_weighted_sum",\
+		"Extraction: Optimal Extraction":"optimal"\
+	}
+
+	TRACING_MODES = {\
+		"Maximum": False,\
+		"Fitted": True\
+	}
+
+	func_echelle_fit_function = 0
+
+	def __new__(cls):
+		if cls._instance is None:
+			cls._instance = super().__new__(cls)
+
+		return cls._instance
+	
+	def __init__(self):
+			self.readHardwareConfig()
+			self.initializeTracerSettings()
+			self.ReferenceData=QtYetiReferenceSpectrograms()
+
+	def readHardwareConfig(self):
+		try:
+			config = configparser.ConfigParser()
+			config.optionxform=str
+			config.read(self.SETTINGS_INI_PATH)
+
+			self.SPECTROMETER_GRATING_DENSITY_PER_MM = config.getint("HARDWARE.Spectrometer","SpectrometerGratingDensityLpMM")
+			self.SPECTROMETER_GRATING_ANGLE_DEG = config.getfloat("HARDWARE.Spectrometer","SpectrometerGratingAngleDeg")
+			self.SPECTROMETER_GRATING_INCIDENT_INPLANE_ANGLE_DEG = config.getfloat("HARDWARE.Spectrometer","SpectrometerGratingInplaneAngleDeg")
+			self.SPECTROMETER_GRATING_INCIDENT_OUTOFPLANE_ANGLE_DEG = config.getfloat("HARDWARE.Spectrometer","SpectrometerGratingOutofplaneAngleDeg")
+			self.SPECTROMETER_GRATING_OUTGOING_ANGLE_DEG = config.getfloat("HARDWARE.Spectrometer","SpectrometerGratingOutgoingAngleDeg")
+
+			self.SPECTROMETER_HAS_IMAGE_SLICER = config.getboolean("HARDWARE.Spectrometer","SpectrometerHasImageslicer")
+			self.SPECTROMETER_IMAGE_SLICER_TRACES_PER_ORDER = config.getint("HARDWARE.Spectrometer","SpectrometerImageslicerTracesPerOrder")
+			self.SPECTROMETER_IMAGE_SLICER_TRACE_SUFFIX = config.getfloat("HARDWARE.Spectrometer","SpectrometerImageslicerTraceSuffix")
+			self.SPECTROMETER_IMAGE_SLICER_SEPARATION_PX = config.getint("HARDWARE.Spectrometer","SpectrometerImageslicerSeparationPixels")
+
+			self.DETECTOR_FOCAL_LENGTH_MM = config.getfloat("HARDWARE.Detector","DetectorFocalLengthMM")
+			self.DETECTOR_INPLANE_ANGLE_DEG = config.getfloat("HARDWARE.Detector","DetectorInplaneAngleDeg")
+			self.DETECTOR_OUTOFPLANE_ANGLE_DEG = config.getfloat("HARDWARE.Detector","DetectorOutofplaneAngleDeg")
+			self.DETECTOR_X_PIXELS = config.getint("HARDWARE.Detector","DetectorXPixels")
+			self.DETECTOR_Y_PIXELS = config.getint("HARDWARE.Detector","DetectorYPixels")
+			self.DETECTOR_PIXEL_SIZE_UM = config.getfloat("HARDWARE.Detector","DetectorPixelSizeUM")
+			self.DETECTOR_PIXEL_BINNING = config.getint("HARDWARE.Detector","DetectorPixelBinning")
+			self.DETECTOR_SPOT_SIZE_PX = config.getint("HARDWARE.Detector","DetectorSpotSizePixels")
+			self.DETECTOR_BIT_DEPTH = config.getint("HARDWARE.Detector","DetectorBitDepth")
+			self.DETECTOR_MAX_INTENSITY = np.power(2,self.DETECTOR_BIT_DEPTH)-1
+			self.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION = config.get("HARDWARE.Detector","DetectorOrderNumberMagnitudeIncreaseDirection")
+
+			del config
+			print(ShellColors.OKGREEN+ f"\r\nSucessfully read QtYetiSettings from File." + ShellColors.ENDC)
+			return
+		
+		except Exception as error:
+			print(ShellColors.FAIL+ f"\r\nError while reading QtYetiSettings(). Result: {error}" + ShellColors.ENDC)
+			return
+
+	def writeHardwareConfig(self):
+		try:
+			config = configparser.ConfigParser()
+			config.optionxform=str
+			config.read(self.SETTINGS_INI_PATH)
+
+			config.set("HARDWARE.Spectrometer","SpectrometerGratingDensityLpMM",f"{self.SPECTROMETER_GRATING_DENSITY_PER_MM}")
+			config.set("HARDWARE.Spectrometer","SpectrometerGratingAngleDeg",f"{self.SPECTROMETER_GRATING_ANGLE_DEG}")
+			config.set("HARDWARE.Spectrometer","SpectrometerGratingInplaneAngleDeg",f"{self.SPECTROMETER_GRATING_INCIDENT_INPLANE_ANGLE_DEG}")
+			config.set("HARDWARE.Spectrometer","SpectrometerGratingOutofplaneAngleDeg",f"{self.SPECTROMETER_GRATING_INCIDENT_OUTOFPLANE_ANGLE_DEG}")
+			config.set("HARDWARE.Spectrometer","SpectrometerGratingOutgoingAngleDeg",f"{self.SPECTROMETER_GRATING_OUTGOING_ANGLE_DEG}")
+
+			config.set("HARDWARE.Spectrometer","SpectrometerHasImageslicer",f"{self.SPECTROMETER_HAS_IMAGE_SLICER}")
+			config.set("HARDWARE.Spectrometer","SpectrometerImageslicerTracesPerOrder",f"{self.SPECTROMETER_IMAGE_SLICER_TRACES_PER_ORDER}")
+			config.set("HARDWARE.Spectrometer","SpectrometerImageslicerTraceSuffix",f"{self.SPECTROMETER_IMAGE_SLICER_TRACE_SUFFIX}")
+			config.set("HARDWARE.Spectrometer","SpectrometerImageslicerSeparationPixels",f"{self.SPECTROMETER_IMAGE_SLICER_SEPARATION_PX}")
+
+			config.set("HARDWARE.Detector","DetectorFocalLengthMM",f"{self.DETECTOR_FOCAL_LENGTH_MM}")
+			config.set("HARDWARE.Detector","DetectorInplaneAngleDeg",f"{self.DETECTOR_INPLANE_ANGLE_DEG}")
+			config.set("HARDWARE.Detector","DetectorOutofplaneAngleDeg",f"{self.DETECTOR_OUTOFPLANE_ANGLE_DEG}")
+			config.set("HARDWARE.Detector","DetectorXPixels",f"{self.DETECTOR_X_PIXELS}")
+			config.set("HARDWARE.Detector","DetectorYPixels",f"{self.DETECTOR_Y_PIXELS}")
+			config.set("HARDWARE.Detector","DetectorPixelSizeUM",f"{self.DETECTOR_PIXEL_SIZE_UM}")
+			config.set("HARDWARE.Detector","DetectorPixelBinning",f"{self.DETECTOR_PIXEL_BINNING}")
+			config.set("HARDWARE.Detector","DetectorSpotSizePixels",f"{self.DETECTOR_SPOT_SIZE_PX}")
+			config.set("HARDWARE.Detector","DetectorBitDepth",f"{self.DETECTOR_BIT_DEPTH}")
+			config.set("HARDWARE.Detector","DetectorOrderNumberMagnitudeIncreaseDirection",f"{self.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION}")
+			
+			with open(QT_YETI.SETTINGS_INI_PATH, 'w') as configfile:
+				config.write(configfile)
+			del config
+
+			return
+		
+		except Exception as error:
+			print(ShellColors.FAIL+ f"Error while writing QtYetiSettings() to file. Result: {error}" + ShellColors.ENDC)
+			return
+
+	def initializeTracerSettings(self):
+		self.TracerSettings = QtYetiTracerSettings("from_file", self.SETTINGS_INI_PATH)
+
+#%%
+class QtYetiTracerSettings:
+	"""
+	Class for keeping all necessary tracer settings mostly for the tracing tab.
+	"""	
+	def __init__(self, origin: str = None, settings_path = ""):
+		self.settings_path = settings_path
+
+		self.readTracerConfig()
+
+	def readTracerConfig(self):
+		try:
+			config = configparser.ConfigParser()
+			config.optionxform=str
+			config.read(self.settings_path)
+
+			self.first_absolute_order =			config.getint("TRACER","TracerFirstAbsoluteOrder")
+			self.abs_order_number_m_direction = config.get("HARDWARE.Detector","DetectorOrderNumberMagnitudeIncreaseDirection").lower()
+
+			self.fit_function_poly_order =		config.getint("TRACER","TracerFitFunctionPolynomialOrder")
+			self.fit_function_use_x_offset =	config.getboolean("TRACER","TracerFitFunctionUseXOffset")
+
+			self.distance_to_image_edge_px = 	config.getint("TRACER","TracerDistanceToImageEdgePx")
+			self.samples_per_order = 			config.getint("TRACER","TracerSamplesPerOrder")
+
+			self.peak_distance_px = 			config.getint("TRACER","TracerPeakDistancePx")
+			self.peak_height = 					config.getfloat("TRACER","TracerPeakHeight")
+			self.peak_prominence = 				config.getfloat("TRACER","TracerPeakProminence")
+			self.peak_width_px = 				config.getint("TRACER","TracerPeakWidthPx")
+
+			self.smoothing_stiffness = 			config.getfloat("TRACER","TracerSmoothingStiffness")
+			self.smoothing_order = 				config.getint("TRACER","TracerSmoothingOrder")
+
+			self.spotsize_px = 					config.getint("HARDWARE.Detector","DetectorSpotSizePixels")
+			self.image_slicer = 				config.getboolean("HARDWARE.Spectrometer","SpectrometerHasImageslicer")
+			self.image_slicer_separation_px = 	config.getint("HARDWARE.Spectrometer","SpectrometerImageslicerSeparationPixels")
+
+			del config
+			print(ShellColors.OKGREEN+ f"→ Sucessfully read TracerSettings from File." + ShellColors.ENDC)
+			return
+
+		except Exception as error:
+			print(ShellColors.FAIL+ f"→ Error while reading TracerSettings in QtYetiTracerSettings(). Result: {error}" + ShellColors.ENDC)
+
+			self.first_absolute_order =			1
+			self.abs_order_number_m_direction = f"up"
+
+			self.fit_function_poly_order =		2
+			self.fit_function_use_x_offset =	True
+
+			self.distance_to_image_edge_px = 	0
+			self.samples_per_order = 			0
+
+			self.peak_distance_px = 			0
+			self.peak_height = 					0.0
+			self.peak_prominence = 				0.0
+			self.peak_width_px = 				0
+
+			self.smoothing_stiffness = 			0.0
+			self.smoothing_order = 				0
+
+			self.spotsize_px = 					1
+			self.image_slicer = 				False
+			self.image_slicer_separation_px = 	0
+
+	def saveTracerConfig(self):
+		config = configparser.ConfigParser()
+		config.optionxform=str#
+		config.read(self.settings_path)
+
+		config.set("TRACER","TracerFirstAbsoluteOrder",f"{self.first_absolute_order}")
+		config.set("HARDWARE.Detector","DetectorOrderNumberMagnitudeIncreaseDirection",f"{self.abs_order_number_m_direction}")
+
+		config.set("TRACER","TracerFitFunctionPolynomialOrder",f"{self.fit_function_poly_order}")
+		config.set("TRACER","TracerFitFunctionUseXOffset",f"{self.fit_function_use_x_offset}")
+
+		config.set("TRACER","TracerDistanceToImageEdgePx",f"{self.distance_to_image_edge_px}")
+		config.set("TRACER","TracerSamplesPerOrder",f"{self.samples_per_order}")
+
+		config.set("TRACER","TracerPeakDistancePx",f"{self.peak_distance_px}")
+		config.set("TRACER","TracerPeakHeight",f"{self.peak_height}")
+		config.set("TRACER","TracerPeakProminence",f"{self.peak_prominence}")
+		config.set("TRACER","TracerPeakWidthPx",f"{self.peak_width_px}")
+
+		config.set("TRACER","TracerSmoothingStiffness",f"{self.smoothing_stiffness}")
+		config.set("TRACER","TracerSmoothingOrder",f"{self.smoothing_order}")
+
+		with open(self.settings_path, 'w') as configfile:
+			config.write(configfile)
+		del config
+
+		# Update QT_YETI.SETTINGS
+		QT_YETI.readHardwareConfig() 
+
+#%%
+class QtYetiReferenceSpectrograms:
+	_instance = None
+	def __new__(cls):
+		if cls._instance is None:
+			cls._instance = super().__new__(cls)
+
+			cls.create_spectrograms(cls)
+
+		return cls._instance
+
+	def create_spectrograms(self):
+		self.Flatfield = -1
+		self.Darkfield = -1
+		self.Sciencedata = -1
+
+""" Initialize Class for settings """
+QT_YETI = QtYetiSettings()
+
+#%%
 class YetiCheckBox(QCheckBox):
 	def __init__(self, *args, **kwargs):
 		super(YetiCheckBox,self).__init__(*args, **kwargs)

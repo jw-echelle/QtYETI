@@ -31,15 +31,18 @@ class TabHardwareSettings(QWidget):
 
 		self.FloatingWindow = None
 
+		self.setFocusPolicy(Qt.StrongFocus)
+		self.setFocus()
+
 	def setupTabStructure(self):
 		# Top Level Tab layout
-		self.tab_layout = QVBoxLayout()
+		self.tab_layout = QHBoxLayout()
 		self.setLayout(self.tab_layout)
 
 		# Add Control Panel
 		self.control_panel = QWidget()
 		self.control_panel.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Fixed)
-		self.tab_layout.addWidget(self.control_panel)
+		self.tab_layout.addWidget(self.control_panel,1,Qt.AlignmentFlag.AlignLeft)
 
 	def customizeTab(self):
 		# Fill Control Panel
@@ -191,6 +194,7 @@ class FloatingHardwareSettingsWindow(QWidget):
 
 	def closeEvent(self, event: QCloseEvent) -> None:
 		# Give the widget back
-		self.original_container_layout.addWidget(self.loaded_widget)
+		# self.original_container_layout.addWidget(self.loaded_widget)
+		self.original_container_layout.addWidget(self.loaded_widget,1,Qt.AlignmentFlag.AlignLeft)
 		self.parent.FloatingWindow = None
 		super(FloatingHardwareSettingsWindow, self).closeEvent(event)

@@ -248,7 +248,6 @@ class Spectrogram:
 			os_filename,os_extension = os.path.splitext(os_file)
 		
 			order_info_filename = f"{os_path}/Order_Information_{os_filename}.txt"
-			header = "Order, x_start, x_stop, a_n, a_(n-1)..., a_0"
 			header = self.fit_function_string
 
 			FileSaver(order_info_filename, header, order_information)
@@ -414,22 +413,28 @@ class Spectrogram:
 	@classmethod
 	def update_fit_function(cls) -> None:
 		"""
-		Generate a string that weill be used in the order information file
+		Generate a string that will be used in the order information file
 		"""		
 
 		func_string = f"Order, x_start, x_stop"
 
-		for degree in range(len(cls.order_list[0].fit_parameters)-1,-1,-1):
+		if( QT_YETI.TracerSettings.fit_function_use_x_offset == True):
+			func_string += f", x0"
+
+		for degree in range(QT_YETI.TracerSettings.fit_function_poly_order,-1,-1):
 			func_string += f", a_{degree}"
 		cls.fit_function_string = func_string
 
-		QtYetiLogger(QT_YETI.MESSAGE,"Fit Function String updated via ClassMethod.",True)
+		### EXPERIMENT ###
+		QtYetiLogger(QT_YETI.MESSAGE,f"Fit Function String updated via ClassMethod. Result: {cls.fit_function_string}",True)
 
 class OrderTracerSettings:
 	"""
 	Class for keeping all necessary tracer settings mostly for the tracing tab.
 	"""	
 	def __init__(self, origin: str=None):
+
+		QtYetiLogger(QT_YETI.WARNING, "Deprecation Warining. This class will be removed in future versions", True)
 
 		self.spotsize_px = 					QT_YETI.DETECTOR_SPOT_SIZE_PX
 		self.image_slicer = 				QT_YETI.SPECTROMETER_HAS_IMAGE_SLICER
@@ -443,6 +448,9 @@ class OrderTracerSettings:
 
 				self.first_absolute_order =			config.getint("TRACER","TracerFirstAbsoluteOrder")
 				self.abs_order_number_m_direction = config.get("HARDWARE.Detector","DetectorOrderNumberMagnitudeIncreaseDirection").lower()
+
+				self.fit_function_poly_order =		config.getint("TRACER","TracerFitFunctionPolynomialOrder")
+				self.fit_function_use_x_offset =	config.getboolean("TRACER","TracerFitFunctionUseXOffset")
 
 				self.distance_to_image_edge_px = 	config.getint("TRACER","TracerDistanceToImageEdgePx")
 				self.samples_per_order = 			config.getint("TRACER","TracerSamplesPerOrder")
@@ -460,9 +468,12 @@ class OrderTracerSettings:
 			except:
 				QtYetiLogger(QT_YETI.ERROR,"Error while reading OrderTracerSettings.",True)
 		else:
-			QtYetiLogger(QT_YETI.WARNING,"OrderTracerSettings were not read from the settings file.",True)
+			QtYetiLogger(QT_YETI.WARNING,f"OrderTracerSettings were not read from the settings file.",True)
 			self.first_absolute_order =			1
 			self.abs_order_number_m_direction = QT_YETI.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION
+
+			self.fit_function_poly_order =		2
+			self.fit_function_use_x_offset =	True
 
 			self.distance_to_image_edge_px = 	0
 			self.samples_per_order = 			0
@@ -482,6 +493,9 @@ class OrderTracerSettings:
 
 		config.set("TRACER","TracerFirstAbsoluteOrder",f"{self.first_absolute_order}")
 		config.set("HARDWARE.Detector","DetectorOrderNumberMagnitudeIncreaseDirection",f"{self.abs_order_number_m_direction}")
+
+		config.set("TRACER","TracerFitFunctionPolynomialOrder",f"{self.fit_function_poly_order}")
+		config.set("TRACER","TracerFitFunctionUseXOffset",f"{self.fit_function_use_x_offset}")
 
 		config.set("TRACER","TracerDistanceToImageEdgePx",f"{self.distance_to_image_edge_px}")
 		config.set("TRACER","TracerSamplesPerOrder",f"{self.samples_per_order}")
@@ -1060,20 +1074,18 @@ def echelle_find_orders( CurrentSpectrogram: Spectrogram = None, x_position = 0,
 	SMOOTHING_STIFFNESS = TracerSettings.smoothing_stiffness
 	SMOOTHING_ORDER = TracerSettings.smoothing_order
 
-	HACK_ARTIFICIAL_OFFSET = -0.01
-
 	# Systematic approach:
 	# Enhance the visibility for darker peaks via np.log10()
 	# Use the Whittaker smoothing to preserve the peak structures and reduce the noise
 	# Normalize the smoothed spectrum
 	# Use percentage values to decide about prominence and minimum height to find peaks
-	current_spectrum = np.squeeze(np.abs(CurrentSpectrogram.data[:,mat_col]))
+	current_spectrum = np.squeeze(np.abs(CurrentSpectrogram.data[:,mat_col])).astype(np.float64)
 
-	#### HACK ####
-	QtYetiLogger(QT_YETI.WARNING, f"Adding artificial offset as a hack for DARKFIELD corrected spectra.", True)
-	current_spectrum = current_spectrum.astype(np.float64) + HACK_ARTIFICIAL_OFFSET
+	# Case: Flatfield's background is subracted too strongly
+	minimum = current_spectrum.min()
+	if( minimum <= 0):
+		current_spectrum = current_spectrum + np.abs(minimum) + 0.001
 
-	# current_spectrum_log10 = np.nan_to_num( np.log10(np.abs(current_spectrum)) , nan=0)
 	current_spectrum_log10 = np.log10(np.abs(current_spectrum))
 	current_spectrum_log10_sm = whittaker_smooth( current_spectrum_log10, SMOOTHING_STIFFNESS, SMOOTHING_ORDER )
 	current_min_max_delta = current_spectrum_log10_sm.max() - current_spectrum_log10_sm.min()
@@ -1091,16 +1103,15 @@ def echelle_find_orders( CurrentSpectrogram: Spectrogram = None, x_position = 0,
 # Fitting model function
 #def echelle_order_fit_function(x,x0,a_6,a_5,a_4,a_3,a_2,a_1,a_0):
 # 	return a_6 * (x-x0)**6+ a_5 * (x-x0)**5 + a_4 * (x-x0)**4 + a_3 * (x-x0)**3 + a_2 * (x-x0)**2 + a_1 * (x-x0) + a_0
-
 def echelle_generate_fit_function(polynomial_order: int = 0, offset_x0 = False):
 	"""
 	Generate an arbitrary polynomial fit function. Example in details.
 
 	### Details
-	Example of order 4\r\n
-	`lambda x,x0,a_4,a_3,a_2,a_1,a_0,: +a_4*((x-x0)**4)+a_3*((x-x0)**3)+a_2*((x-x0)**2)+a_1*((x-x0)**1)+a_0*((x-x0)**0)`\r\n
+	Example of order 2\r\n
+	`lambda x,a_2,a_1,a_0: +(a_2*x**2)+(a_1*x**1)+(a_0*x**0)`\r\n
 	or\r\n
-	`lambda x,a_4,a_3,a_2,a_1,a_0,: +a_4*(x**4)+a_3*(x**3)+a_2*(x**2)+a_1*(x**1)+a_0*(x**0)`
+	`lambda x,x0,a_2,a_1,a_0: +(a_2*(x-x0)**2)+(a_1*(x-x0)**1)+(a_0*(x-x0)**0)`
 
 
 	#### Parameters:
@@ -1112,20 +1123,31 @@ def echelle_generate_fit_function(polynomial_order: int = 0, offset_x0 = False):
 	"""	
 	polynomial_order = abs(polynomial_order)
 
-	prefix = "lambda x,"
+	function_string = f""
+	prefix = "lambda x"
 	base = f"x"
+
 	if( offset_x0 ):
-		prefix = "lambda x,x0,"
+		prefix = "lambda x,x0"
 		base = f"(x-x0)"
 	param = "a_"
-	function_string = f""
+
 	for i in range(polynomial_order,-1,-1):
-		prefix += f"{param}{i},"
-		function_string += f"+{param}{i}*({base}**{i})"
+		prefix += f",{param}{i}"
+		function_string += f"+({param}{i}*{base}**{i})"
 
-	return eval(f"{prefix}: {function_string}")
+	eval_string = f"{prefix}: {function_string}"
 
-echelle_order_fit_function = echelle_generate_fit_function(polynomial_order=2, offset_x0=False)
+	### FIXME ###
+	QtYetiLogger(QT_YETI.MESSAGE,f"Using {ShellColors.OKBLUE + eval_string + ShellColors.ENDC} as fit function for spectrograms.")
+	return eval(eval_string)
+
+# Generate `function pointer`
+echelle_order_fit_function = \
+	echelle_generate_fit_function( \
+		polynomial_order=QT_YETI.TracerSettings.fit_function_poly_order,\
+		offset_x0=QT_YETI.TracerSettings.fit_function_use_x_offset \
+)
 
 def echelle_order_archlength_integrand(x,x0,a_6,a_5,a_4,a_3,a_2,a_1):
 	# Sqrt(1 + f'(x)²)
@@ -1174,15 +1196,9 @@ def echelle_order_tracer(CurrentSpectrogram: Spectrogram, CurrentTracerSettings:
 	SAMPLES_PER_ORDER = CurrentTracerSettings.samples_per_order
 	DISTANCE_TO_EDGE = CurrentTracerSettings.distance_to_image_edge_px
 
-	# Whittaker Smoothing 
-	SMOOTHING_STIFFNESS = CurrentTracerSettings.smoothing_stiffness
-	SMOOTHING_ORDER = CurrentTracerSettings.smoothing_order
-
 	COLUMN_SAMPLING_DISTANCE = np.int32( np.rint( SP_COLUMNS / SAMPLES_PER_ORDER ))
-	PEAK_PROMINENCE = CurrentTracerSettings.peak_prominence
 		
 	SEARCH_INTERVAL = (CurrentTracerSettings.spotsize_px //2)  //2
-	#PEAK_FIND_DISTANCE = ...
 
 	################################################
 	# SWITCH OF COORDINATES TO idx, jdx = row-Y, X #
@@ -1197,12 +1213,11 @@ def echelle_order_tracer(CurrentSpectrogram: Spectrogram, CurrentTracerSettings:
 
 	# Auxiliary functions
 
-	#### ONLY FOR PEAK FITTING ####
+	### ONLY FOR PEAK FITTING ####
+	# Tested with echelle fit generator takes +2sec for smaller spectra
 	def _quadratic_fit_function(x,x0,a_2,a_1,a_0):
 		return a_2*(x-x0)**2 + a_1*(x-x0) + a_0
 
-	# #### TODO ####
-	#_quadratic_fit_function = echelle_generate_fit_function(polynomial_order=2, offset_x0=True)
 	order_fit_function = _quadratic_fit_function
 
 	def _find_argmax_and_average_along_y(intensity_array: np.ndarray)->Tuple[int, float]:
@@ -1268,10 +1283,12 @@ def echelle_order_tracer(CurrentSpectrogram: Spectrogram, CurrentTracerSettings:
 
 	def _find_order_intensity_maxima_along_x(trace_range: range, initial_y: int) -> Tuple[list,list]:
 		"""
-		...
+		Propagate along a trace of an order (point by point) and find the y_index of a maximum for later fitting.
 
 		### Details
-
+		Refer to comments in the code.\r\n
+		Start at the beginning of `trace_range`. Define a small array in y-direction (colums) around a guessed maximum.
+		
 		#### Parameters:
 			`trace_range` (range): Range of X pixels to be considered
 			`initial_y` (int): Initial Y pixel to start the tracing at
@@ -1282,27 +1299,29 @@ def echelle_order_tracer(CurrentSpectrogram: Spectrogram, CurrentTracerSettings:
 		x_list = []
 		y_list = []
 
-		#### HACK ####
+		#### EXPERIMENT ####
 		maxima_list = []
 
 		# Initial index & Initial accumulated error
 		previous_idx = row(initial_y, SP_ROWS)
 		# The guess is an integrated error (similar to I in a PID controller)
 		guess_next_idx = 0
+
+		lower_index_boundary = SEARCH_INTERVAL
+		upper_index_boundary = (CurrentSpectrogram.ysize-1) - SEARCH_INTERVAL
+
 		for i,jdx in enumerate(trace_range):
 
 			center_idx = previous_idx + guess_next_idx
 
-			#### DEBUG ####
-			if(center_idx < SEARCH_INTERVAL):
-				QtYetiLogger(QT_YETI.ERROR, f"Center IDX = {center_idx} has gotten out of bounds because a trace of an order might have left the image.")
+			# Check whether we've hit the boundary of the spectrogram
+			if((center_idx < lower_index_boundary) or center_idx >= upper_index_boundary):
+				# QtYetiLogger(QT_YETI.ERROR, f"Center IDX = {center_idx} has gotten out of bounds because a trace of an order might have left the image.")
+				break
 
 			index_range = slice(center_idx - SEARCH_INTERVAL, center_idx + SEARCH_INTERVAL + 1, 1)
 			spec_of_interest = np.squeeze(SPECTROGRAM[index_range, jdx])
-
-			# Check whether we've hit the boundary of the spectrogram
-			if( spec_of_interest.shape[-1] == SEARCH_INTERVAL):
-				break
+			
 			try:
 				# Here is where the magic happens. found_idx = 0 .. 2*SEARCH_RANGE+1
 				found_idx, max_int_avg = Intensity_Maximum_Search_Function(spec_of_interest)
@@ -1316,14 +1335,13 @@ def echelle_order_tracer(CurrentSpectrogram: Spectrogram, CurrentTracerSettings:
 				)
 				pass
 
-			#### HACK or BUG ####
+			#### EXPERIMENT ####
 			# Check the break criteria!!
 			# if(max_int_avg <= INTENSITY_CUT_OFF_VALUE):
 			# 	break
 			
 			# if (SIGNAL_TO_NOISE ...):
 			# 	break
-
 
 			# Prepare for next loop iterationa and correct for the Search Range
 			previous_idx = previous_idx + (found_idx-SEARCH_INTERVAL)
@@ -1336,7 +1354,10 @@ def echelle_order_tracer(CurrentSpectrogram: Spectrogram, CurrentTracerSettings:
 
 		return x_list, y_list
 
+	################################################
 	# Tracer loop
+	################################################
+
 	result_list = []
 
 	initial_x, _ = order_centers_list[0]

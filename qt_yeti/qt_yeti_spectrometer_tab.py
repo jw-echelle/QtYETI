@@ -74,8 +74,8 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 		self.axes_spectrum.set_ylim( self.CurrentSpectrogram.intmin, self.CurrentSpectrogram.intmax )
 
 		[self.order_poly_plot] =  self.axes_spectrogram.plot(0,0,alpha=0.75,linewidth="0.5",color=YetiColors.RED, label="Order_Poly_Plot")
-		[self.order_higher_row_plot] = self.axes_spectrogram.plot(0,0,alpha=0.25,linewidth="0.5",color=YetiColors.YETI_WHITE, label="Order_Summation_Higher_Row")
-		[self.order_lower_row_plot] =  self.axes_spectrogram.plot(0,0,alpha=0.25,linewidth="0.5",color=YetiColors.YETI_WHITE, label="Order_Summation_Lower_Row")
+		[self.order_higher_row_plot] = self.axes_spectrogram.plot(0,0,alpha=0.25,linewidth="0.5",color=YetiColors.YETI_GREY, label="Order_Summation_Higher_Row")
+		[self.order_lower_row_plot] =  self.axes_spectrogram.plot(0,0,alpha=0.25,linewidth="0.5",color=YetiColors.YETI_GREY, label="Order_Summation_Lower_Row")
 
 		# Text
 		self.axes_spectrogram_text = self.axes_spectrogram.text(transform=self.axes_spectrogram.transAxes, ha='left', va='top', x=0.005, y=0.98, label="loaded_file_path", weight="bold", color="#AAAAAA", s=f"No data loaded.")
@@ -219,7 +219,7 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 		# Annotate trace
 		text_x_coordinate = QT_YETI.ANNOTATION_X_COORDINATE
 		text_y_coordinate = 5 + np.asarray(echelle_order_fit_function(text_x_coordinate, *fit_parameters)).max()
-		self.axes_spectrogram.text(text_x_coordinate, text_y_coordinate,f"Relative trace number {order_index+1}",fontsize=6,color=YetiColors.YETI_WHITE,label="trace_description")
+		self.axes_spectrogram.text(text_x_coordinate, text_y_coordinate,f"Relative trace number {order_index+1}",fontsize=6,color=YetiColors.YETI_GREY,label="trace_description")
 
 		# Change Order Number
 		if(self.axes_spectrum.texts):

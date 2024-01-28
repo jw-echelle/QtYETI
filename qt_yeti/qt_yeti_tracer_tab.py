@@ -50,9 +50,7 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		self.control_figure.tight_layout()
 
 		# Tracer Specific
-		## Setup important lists
-		# Could be omitted
-		self.TracerSettings = OrderTracerSettings("from_file")
+		self.TracerSettings = QT_YETI.TracerSettings
 
 	### Plots and Callbacks ###
 	def setup_plots(self):
@@ -256,7 +254,7 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 
 		for index,(dot_x, dot_y) in enumerate(self.CurrentSpectrogram.order_centers_list):
 			self.axes_spectrogram.plot(dot_x, dot_y, color = "#00AA00", marker="s", fillstyle="none", markersize=5, markeredgewidth=0.7, label="orderdot")
-			self.axes_spectrogram.text(QT_YETI.ANNOTATION_X_COORDINATE, dot_y+0,f"Relative trace number {index+1}",fontsize=6,color=YetiColors.YETI_WHITE,label="orderdottext")
+			self.axes_spectrogram.text(QT_YETI.ANNOTATION_X_COORDINATE, dot_y+0,f"Relative trace number {index+1}",fontsize=6,color=YetiColors.YETI_GREY,label="orderdottext")
 		
 		if (redraw):
 			self.draw_idle()
@@ -310,7 +308,7 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 
 	# Tracing
 	@elapsed_time
-	def tracer_start_tracing(self, ReceivedTracerSettings: OrderTracerSettings, precision_tracing_mode: bool = False):
+	def tracer_start_tracing(self, ReceivedTracerSettings: QtYetiTracerSettings, precision_tracing_mode: bool = False):
 
 		# Trace an order and find its center positions
 		self.TracerSettings = ReceivedTracerSettings
@@ -329,18 +327,20 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 		# List of Order objects
 		order_list = []
 
+		#### HACK ####
 		DOWNSAMPLING_BY = 4
+
 		# Where the magic happens
 		x_y_series = echelle_order_tracer(self.CurrentSpectrogram, self.TracerSettings, downsampling_value = DOWNSAMPLING_BY, precision_mode=precision_tracing_mode, intensity_cut_off_value=500)
 
-		""" Experimental """
-		FIT_REDUCTION = False
-		fit_reduction_factor = 1.
-		if( FIT_REDUCTION ):
-			fit_reduction_factor = 1000.
-		correction_array = np.asarray([fit_reduction_factor**(-3),fit_reduction_factor**(-2),fit_reduction_factor**(-1), fit_reduction_factor**(0), fit_reduction_factor**(1)])
-		correction_array = np.asarray([fit_reduction_factor**(-1), fit_reduction_factor**(0), fit_reduction_factor**(1)])
-		"""##############"""
+		# """ EXPERIMENT """
+		# FIT_REDUCTION = False
+		# fit_reduction_factor = 1.
+		# if( FIT_REDUCTION ):
+		# 	fit_reduction_factor = 1000.
+		# correction_array = np.asarray([fit_reduction_factor**(-3),fit_reduction_factor**(-2),fit_reduction_factor**(-1), fit_reduction_factor**(0), fit_reduction_factor**(1)])
+		# correction_array = np.asarray([fit_reduction_factor**(-1), fit_reduction_factor**(0), fit_reduction_factor**(1)])
+		# """##############"""
 
 		#bounds = ([0, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,0],[4,0,np.inf,np.inf,np.inf,np.inf,np.inf,np.inf])
 
@@ -353,11 +353,15 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 			y_series = np.asarray(y_series)
 
 			try:
+				# """ EXPERIMENT """
 				# Fit the found points with a polynomial function
 				# To reduce the numerical values, the data arrays are divided by `fit_reduction_factor` and later corrected
-				fit_output, _ = curve_fit(echelle_order_fit_function, x_series / fit_reduction_factor, y_series / fit_reduction_factor)#, bounds=bounds)
-				if( FIT_REDUCTION ):
-					fit_output = fit_output * correction_array
+				# fit_output, _ = curve_fit(echelle_order_fit_function, x_series / fit_reduction_factor, y_series / fit_reduction_factor)#, bounds=bounds)
+				# if( FIT_REDUCTION ):
+				# 	fit_output = fit_output * correction_array
+				# """##############"""
+
+				fit_output, _ = curve_fit(echelle_order_fit_function, x_series , y_series )#, bounds=bounds)
 
 				x_start = x_series[0]
 				x_stop = x_series[-1]
@@ -433,7 +437,7 @@ class TracerSettingsWindow(QWidget):
 		self.canvas = MPLCanvas
 		self.CurrentSettings = -1
 		self.load_tracer_settings_from_file()
-		#### HACK #### → Include this into TracerSettings()
+
 		self.precision_tracing_mode = False 
 
 		# for child in self.findChildren((QPushButton, QSpinBox)):
@@ -454,6 +458,8 @@ class TracerSettingsWindow(QWidget):
 		self.spotsize_box = YetiSpinBox()
 		self.image_slicer_box = QCheckBox()
 		self.image_slicer_separation_box = YetiSpinBox()
+		self.poly_order_box = YetiSpinBox()
+		self.poly_use_x_offset_checkbox = YetiCheckBox()
 		self.distance_to_image_edge_box = YetiSpinBox()
 		self.samples_per_order_box = YetiSpinBox()
 		self.peak_distance_box = YetiSpinBox()
@@ -479,6 +485,7 @@ class TracerSettingsWindow(QWidget):
 		self.spotsize_box.setRange(-1 * qspinboxlimit, qspinboxlimit)
 		#self.image_slicer_box
 		self.image_slicer_separation_box.setRange(-1 * qspinboxlimit, qspinboxlimit)
+		self.poly_order_box.setRange(0,10)
 		self.distance_to_image_edge_box.setRange(-1 * qspinboxlimit, qspinboxlimit)
 		self.samples_per_order_box.setRange(-1 * qspinboxlimit, qspinboxlimit)
 		self.peak_distance_box.setRange(-1 * qspinboxlimit, qspinboxlimit)
@@ -490,14 +497,15 @@ class TracerSettingsWindow(QWidget):
 
 		self.visible_traces.setChecked(True)
 
-		self.spotsize_box.setReadOnly(True)
-		self.spotsize_box.setStyleSheet("background-color: #DDDDDD;")
-		self.image_slicer_box.setCheckable(False)
-		self.image_slicer_box.setStyleSheet("background-color: #DDDDDD;")
-		self.image_slicer_separation_box.setReadOnly(True)
-		self.image_slicer_separation_box.setStyleSheet("background-color: #DDDDDD;")
+		self.poly_order_box.setEnabled(False)
+		self.poly_use_x_offset_checkbox.setEnabled(False)
+		self.spotsize_box.setEnabled(False)
+		self.image_slicer_box.setEnabled(False)
+		self.image_slicer_separation_box.setEnabled(False)
+		# self.image_slicer_separation_box.setReadOnly(True)
+		# self.image_slicer_separation_box.setStyleSheet(f"background-color: {YetiColors.YETI_GREY};")
 
-		lines = [QFrame(),QFrame(),QFrame(),QFrame()]
+		lines = [QFrame(),QFrame(),QFrame(),QFrame(),QFrame()]
 		for line in lines:
 			line.setFrameShape(QFrame.HLine)
 			line.setFrameShadow(QFrame.Sunken)
@@ -514,6 +522,10 @@ class TracerSettingsWindow(QWidget):
 		self.tracer_control.addRow(self.image_slicer_box, QLabel("Image Slicer Yes/No"))
 		self.tracer_control.addRow(self.image_slicer_separation_box, QLabel("Image Slicer Offset"))
 		self.tracer_control.addRow(lines[1])
+		self.tracer_control.addRow(QLabel("Polynomial Function for Order Traces"))
+		self.tracer_control.addRow(self.poly_order_box, QLabel(f"Polynomial Order of Trace Fit"))
+		self.tracer_control.addRow(self.poly_use_x_offset_checkbox, QLabel(f"Use (x-x<sub>0</sub>)<sup>n</sup> Offset"))
+		self.tracer_control.addRow(lines[2])
 		self.tracer_control.addRow(self.distance_to_image_edge_box, QLabel("Distance to Image edge (px)"))
 		self.tracer_control.addRow(self.samples_per_order_box, QLabel("Samples per Order"))
 		self.tracer_control.addRow(self.peak_distance_box, QLabel("Peak Distance (px)"))
@@ -524,12 +536,12 @@ class TracerSettingsWindow(QWidget):
 		self.tracer_control.addRow(QLabel("Whittaker Smoothing & Peak Finding"))
 		self.tracer_control.addRow(self.smoothing_stiffness_box, QLabel("Smoothing Stiffness"))
 		self.tracer_control.addRow(self.smoothing_order_box, QLabel("Smoothing Order"))
-		self.tracer_control.addRow(lines[2])
+		self.tracer_control.addRow(lines[3])
 
 		self.tracer_window_layout.addLayout(self.tracer_control)
 		self.tracer_window_layout.addWidget(self.save_settings_btn)
 		self.tracer_window_layout.addWidget(self.load_settings_btn)
-		self.tracer_window_layout.addWidget(lines[3])
+		self.tracer_window_layout.addWidget(lines[4])
 		self.tracer_window_layout.addWidget(self.trace_btn)
 		self.tracer_window_layout.addWidget(self.visible_traces)
 
@@ -557,6 +569,10 @@ class TracerSettingsWindow(QWidget):
 		# self.spotsize_box.editingFinished.connect(self.update_tracer_settings)
 		# self.image_slicer_box.editingFinished.connect(self.update_tracer_settings)
 		# self.image_slicer_separation_box.editingFinished.connect(self.update_tracer_settings)
+
+		# self.poly_order_box.editingFinished.connect(self.update_tracer_settings)
+		# self.poly_use_x_offset_checkbox.clicked.connect(self.update_tracer_settings)
+
 		self.distance_to_image_edge_box.editingFinished.connect(self.update_tracer_settings)
 		self.samples_per_order_box.editingFinished.connect(self.update_tracer_settings)
 		self.peak_distance_box.editingFinished.connect(self.update_tracer_settings)
@@ -590,6 +606,8 @@ class TracerSettingsWindow(QWidget):
 			QtYetiLogger(QT_YETI.ERROR,f"Unknown abs_order_number_m_direction: {current_direction_value}",True)
 			raise ValueError(f"Unknown abs_order_number_m_direction: {current_direction_value}. It has to be up or down. Please check {QT_YETI.SETTINGS_INI_PATH}")
 
+		self.poly_order_box.setValue(				self.CurrentSettings.fit_function_poly_order)
+		self.poly_use_x_offset_checkbox.setChecked( self.CurrentSettings.fit_function_use_x_offset)
 		self.distance_to_image_edge_box.setValue(	self.CurrentSettings.distance_to_image_edge_px)
 		self.samples_per_order_box.setValue(		self.CurrentSettings.samples_per_order)
 		self.peak_distance_box.setValue(			self.CurrentSettings.peak_distance_px)
@@ -633,6 +651,8 @@ class TracerSettingsWindow(QWidget):
 		self.CurrentSettings.spotsize = 					self.spotsize_box.value()
 		self.CurrentSettings.image_slicer = 				self.image_slicer_box.isChecked()
 		self.CurrentSettings.image_slicer_separation_px = 	self.image_slicer_separation_box.value()
+		self.CurrentSettings.fit_function_poly_order = 		int(self.poly_order_box.value())
+		self.CurrentSettings.fit_function_use_x_offset =	self.poly_use_x_offset_checkbox.isChecked()
 		self.CurrentSettings.distance_to_edge = 			self.distance_to_image_edge_box.value()
 		self.CurrentSettings.samples_per_order = 			self.samples_per_order_box.value()
 		self.CurrentSettings.peak_distance_px = 			self.peak_distance_box.value()
@@ -644,10 +664,19 @@ class TracerSettingsWindow(QWidget):
 		
 		self.canvas.TracerSettings = self.CurrentSettings
 
+		QT_YETI.echelle_fit_function = \
+			echelle_generate_fit_function( \
+				polynomial_order=QT_YETI.TracerSettings.fit_function_poly_order, \
+				offset_x0=QT_YETI.TracerSettings.fit_function_use_x_offset \
+			)
+
 	def load_tracer_settings_from_file(self):
-		self.CurrentSettings = -1
-		self.CurrentSettings = OrderTracerSettings("from_file")
+
+		QT_YETI.TracerSettings.readTracerConfig()
+
+		self.CurrentSettings = QT_YETI.TracerSettings
 		self.canvas.TracerSettings = self.CurrentSettings
+
 		self.update_controls()
 
 	def save_tracer_settings_to_file(self):
@@ -655,7 +684,7 @@ class TracerSettingsWindow(QWidget):
 		Save the current state to the settings ini file
 		"""
 		self.update_tracer_settings()
-		self.CurrentSettings.to_file()
+		self.CurrentSettings.saveTracerConfig()
 		self.canvas.TracerSettings = self.CurrentSettings
 
 	@pyqtSlot()
@@ -897,7 +926,6 @@ class TabOrderTracer(QWidget):
 
 	@pyqtSlot()
 	def gui_save_order_information(self):
-		QtYetiLogger(QT_YETI.MESSAGE,f"Entered Callbäck function",True)
 		self.figure_canvas.save_order_information(self.spectrogram_filename)
 
 	@pyqtSlot()

@@ -233,7 +233,7 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 		# Annotate trace
 		text_x_coordinate = QT_YETI.ANNOTATION_X_COORDINATE
 		text_y_coordinate = 5 + np.asarray(echelle_order_fit_function(text_x_coordinate, *fit_parameters)).max()
-		self.axes_spectrogram.text(text_x_coordinate, text_y_coordinate,f"Relative trace number {order_index+1}",fontsize=6,color=YetiColors.YETI_WHITE,label="trace_description")
+		self.axes_spectrogram.text(text_x_coordinate, text_y_coordinate,f"Relative trace number {order_index+1}",fontsize=6,color=YetiColors.YETI_GREY,label="trace_description")
 
 		# Change Order Number
 		if(self.axes_spectrum.texts):
