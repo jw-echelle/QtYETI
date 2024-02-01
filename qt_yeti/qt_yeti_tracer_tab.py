@@ -308,11 +308,17 @@ class FlatfieldCanvas( FigureCanvasQTAgg, C ):
 
 	# Tracing
 	@elapsed_time
-	def tracer_start_tracing(self, ReceivedTracerSettings: QtYetiTracerSettings, precision_tracing_mode: bool = False):
+	def tracer_start_tracing(self, precision_tracing_mode: bool = False):
+		"""
+		Start tracing of echelle orders
 
-		# Trace an order and find its center positions
-		self.TracerSettings = ReceivedTracerSettings
+		### Details
+		...
 
+		#### Parameters:
+			`precision_tracing_mode` (bool, optional):
+			If `True`, then the order intensities are fitted in y-direction to more accurately find trace maxima at a given x pixel. Defaults to False.
+		"""
 		if( not self.CurrentSpectrogram.order_centers_list ):
 			QtYetiLogger(QT_YETI.ERROR,"Order centers list is empty. Nothing to trace.")
 			return
@@ -426,25 +432,27 @@ class TracerSettingsWindow(QWidget):
 		super(TracerSettingsWindow, self).__init__(parent=None)
 		
 		self.setWindowTitle(QT_YETI.TRACER_WINDOW_NAME)
-		#self.setGeometry(QRect(10,10,10,10))
+		# self.setGeometry(QRect(333,296,QT_YETI.TRACER_WINDOW_WIDTH,QT_YETI.TRACER_WINDOW_HEIGHT))
 		self.resize(QT_YETI.TRACER_WINDOW_WIDTH, QT_YETI.TRACER_WINDOW_HEIGHT)
 		self.setWindowFlags(Qt.WindowStaysOnTopHint)
 		self.setWindowIcon(QIcon(QT_YETI.IMAGE_PATH))
 
 		self.setup_tracer_window()
-		self.connect_slots()
+		self.update_controls()
 
 		self.canvas = MPLCanvas
-		self.CurrentSettings = -1
-		self.load_tracer_settings_from_file()
+
 
 		self.precision_tracing_mode = False 
+
+		# Final touches
 
 		# for child in self.findChildren((QPushButton, QSpinBox)):
 		# 	child.setFocusPolicy(Qt.NoFocus)
 		# self.setFocusPolicy(Qt.ClickFocus)
 		# self.setFocus(Qt.NoFocusReason)
 		# self.activateWindow()
+		self.connect_slots()
 		self.setFocusPolicy(Qt.StrongFocus)
 		self.setFocus()
 
@@ -469,8 +477,6 @@ class TracerSettingsWindow(QWidget):
 		self.tracing_mode_box = YetiComboBox()
 		self.smoothing_stiffness_box = YetiDoubleSpinBox()
 		self.smoothing_order_box = YetiSpinBox()
-		self.load_settings_btn = QPushButton("Load Settings")
-		self.save_settings_btn = QPushButton("Save Settings")
 		self.trace_btn = QPushButton("Start Tracing")
 		self.visible_traces = QCheckBox("View / Hide Tracer Lines")
 
@@ -497,11 +503,11 @@ class TracerSettingsWindow(QWidget):
 
 		self.visible_traces.setChecked(True)
 
+		# self.spotsize_box.setEnabled(False)
+		# self.image_slicer_box.setEnabled(False)
+		# self.image_slicer_separation_box.setEnabled(False)
 		self.poly_order_box.setEnabled(False)
 		self.poly_use_x_offset_checkbox.setEnabled(False)
-		self.spotsize_box.setEnabled(False)
-		self.image_slicer_box.setEnabled(False)
-		self.image_slicer_separation_box.setEnabled(False)
 		# self.image_slicer_separation_box.setReadOnly(True)
 		# self.image_slicer_separation_box.setStyleSheet(f"background-color: {YetiColors.YETI_GREY};")
 
@@ -511,13 +517,15 @@ class TracerSettingsWindow(QWidget):
 			line.setFrameShadow(QFrame.Sunken)
 
 		self.tracer_control = QFormLayout()
+		self.tracer_window_layout.addLayout(self.tracer_control)
+
 		self.tracer_control.addRow(QLabel("<b>Peak Finding & Tracer Settings</b>"))
 		self.tracer_control.addRow(QLabel("\tConvention: mλ/d cos(γ) = sin(α) + sin(β)"))
 		self.tracer_control.addRow(self.first_absolute_order_box, QLabel("First absolute Order"))
 		self.tracer_control.addRow(self.abs_order_number_m_direction_down_btn)
 		self.tracer_control.addRow(self.abs_order_number_m_direction_up_btn)
 		self.tracer_control.addRow(lines[0])
-		self.tracer_control.addRow(QLabel("Read-only. Update values in the Hardware Tab"))
+		self.tracer_control.addRow(QLabel("Spot Sizes, Slit Widths & Image Slicer"))
 		self.tracer_control.addRow(self.spotsize_box, QLabel("Spotsize of fiber on detector"))
 		self.tracer_control.addRow(self.image_slicer_box, QLabel("Image Slicer Yes/No"))
 		self.tracer_control.addRow(self.image_slicer_separation_box, QLabel("Image Slicer Offset"))
@@ -538,10 +546,6 @@ class TracerSettingsWindow(QWidget):
 		self.tracer_control.addRow(self.smoothing_order_box, QLabel("Smoothing Order"))
 		self.tracer_control.addRow(lines[3])
 
-		self.tracer_window_layout.addLayout(self.tracer_control)
-		self.tracer_window_layout.addWidget(self.save_settings_btn)
-		self.tracer_window_layout.addWidget(self.load_settings_btn)
-		self.tracer_window_layout.addWidget(lines[4])
 		self.tracer_window_layout.addWidget(self.trace_btn)
 		self.tracer_window_layout.addWidget(self.visible_traces)
 
@@ -557,32 +561,30 @@ class TracerSettingsWindow(QWidget):
 
 	def connect_slots(self):
 		# Signals/Slots
-		self.save_settings_btn.clicked.connect(self.save_tracer_settings_to_file)
-		self.load_settings_btn.clicked.connect(self.load_tracer_settings_from_file)
 
 		self.trace_btn.clicked.connect(self.start_tracer)
 
 		self.visible_traces.toggled.connect(self.toggle_tracer_line_visiblity)
-		self.first_absolute_order_box.editingFinished.connect(self.update_tracer_settings)
-		self.abs_order_number_m_direction_down_btn.clicked.connect(self.update_tracer_settings)
-		self.abs_order_number_m_direction_up_btn.clicked.connect(self.update_tracer_settings)
-		# self.spotsize_box.editingFinished.connect(self.update_tracer_settings)
-		# self.image_slicer_box.editingFinished.connect(self.update_tracer_settings)
-		# self.image_slicer_separation_box.editingFinished.connect(self.update_tracer_settings)
+		self.first_absolute_order_box.editingFinished.connect(self.update_TracerSettings)
+		self.abs_order_number_m_direction_down_btn.clicked.connect(self.update_TracerSettings)
+		self.abs_order_number_m_direction_up_btn.clicked.connect(self.update_TracerSettings)
+		self.spotsize_box.editingFinished.connect(self.update_TracerSettings)
+		self.image_slicer_box.toggled.connect(self.update_TracerSettings)
+		self.image_slicer_separation_box.editingFinished.connect(self.update_TracerSettings)
 
 		# self.poly_order_box.editingFinished.connect(self.update_tracer_settings)
 		# self.poly_use_x_offset_checkbox.clicked.connect(self.update_tracer_settings)
 
-		self.distance_to_image_edge_box.editingFinished.connect(self.update_tracer_settings)
-		self.samples_per_order_box.editingFinished.connect(self.update_tracer_settings)
-		self.peak_distance_box.editingFinished.connect(self.update_tracer_settings)
-		self.peak_height_box.editingFinished.connect(self.update_tracer_settings)
-		self.peak_prominence_box.editingFinished.connect(self.update_tracer_settings)
-		self.peak_width_box.editingFinished.connect(self.update_tracer_settings)
+		self.distance_to_image_edge_box.editingFinished.connect(self.update_TracerSettings)
+		self.samples_per_order_box.editingFinished.connect(self.update_TracerSettings)
+		self.peak_distance_box.editingFinished.connect(self.update_TracerSettings)
+		self.peak_height_box.editingFinished.connect(self.update_TracerSettings)
+		self.peak_prominence_box.editingFinished.connect(self.update_TracerSettings)
+		self.peak_width_box.editingFinished.connect(self.update_TracerSettings)
 		self.tracing_mode_box.currentTextChanged.connect(self.update_tracing_mode)
 		# self.tracing_mode_box.editingFinished.connect(self.update_tracer_settings)
-		self.smoothing_stiffness_box.editingFinished.connect(self.update_tracer_settings)
-		self.smoothing_order_box.editingFinished.connect(self.update_tracer_settings)
+		self.smoothing_stiffness_box.editingFinished.connect(self.update_TracerSettings)
+		self.smoothing_order_box.editingFinished.connect(self.update_TracerSettings)
 
 	def update_controls(self):
 		"""
@@ -591,37 +593,36 @@ class TracerSettingsWindow(QWidget):
 		#### Raises:
 			`ValueError`: Raised when the button ends up in an unititialized state through an unknown error.
 		"""
-		self.spotsize_box.setValue(					self.CurrentSettings.spotsize_px)
-		self.image_slicer_box.setChecked(			self.CurrentSettings.image_slicer)
-		self.image_slicer_separation_box.setValue(	self.CurrentSettings.image_slicer_separation_px)
+		self.spotsize_box.setValue(					QT_YETI.TracerSettings.spotsize_px)
+		self.image_slicer_box.setChecked(			QT_YETI.TracerSettings.image_slicer)
+		self.image_slicer_separation_box.setValue(	QT_YETI.TracerSettings.image_slicer_separation_px)
 
-		self.first_absolute_order_box.setValue(		self.CurrentSettings.first_absolute_order)
+		self.first_absolute_order_box.setValue(		QT_YETI.TracerSettings.first_absolute_order)
 		# Check direction of orders
-		current_direction_value = self.CurrentSettings.abs_order_number_m_direction
+		current_direction_value = QT_YETI.TracerSettings.abs_order_number_m_direction
 		if  (current_direction_value == "up"):
 			self.abs_order_number_m_direction_up_btn.setChecked(True)
 		elif(current_direction_value == "down"):
 			self.abs_order_number_m_direction_down_btn.setChecked(True)
 		else:
-			QtYetiLogger(QT_YETI.ERROR,f"Unknown abs_order_number_m_direction: {current_direction_value}",True)
+			#### REMOVE #### QtYetiLogger(QT_YETI.ERROR,f"Unknown abs_order_number_m_direction: {current_direction_value}",True)
 			raise ValueError(f"Unknown abs_order_number_m_direction: {current_direction_value}. It has to be up or down. Please check {QT_YETI.SETTINGS_INI_PATH}")
 
-		self.poly_order_box.setValue(				self.CurrentSettings.fit_function_poly_order)
-		self.poly_use_x_offset_checkbox.setChecked( self.CurrentSettings.fit_function_use_x_offset)
-		self.distance_to_image_edge_box.setValue(	self.CurrentSettings.distance_to_image_edge_px)
-		self.samples_per_order_box.setValue(		self.CurrentSettings.samples_per_order)
-		self.peak_distance_box.setValue(			self.CurrentSettings.peak_distance_px)
-		self.peak_height_box.setValue(				self.CurrentSettings.peak_height * 100)
-		self.peak_prominence_box.setValue(			self.CurrentSettings.peak_prominence * 100)
-		self.peak_width_box.setValue(				self.CurrentSettings.peak_width_px)
-		self.smoothing_stiffness_box.setValue(		self.CurrentSettings.smoothing_stiffness)
-		self.smoothing_order_box.setValue(			self.CurrentSettings.smoothing_order)
+		self.poly_order_box.setValue(				QT_YETI.TracerSettings.fit_function_poly_order)
+		self.poly_use_x_offset_checkbox.setChecked( QT_YETI.TracerSettings.fit_function_use_x_offset)
+		self.distance_to_image_edge_box.setValue(	QT_YETI.TracerSettings.distance_to_image_edge_px)
+		self.samples_per_order_box.setValue(		QT_YETI.TracerSettings.samples_per_order)
+		self.peak_distance_box.setValue(			QT_YETI.TracerSettings.peak_distance_px)
+		self.peak_height_box.setValue(				QT_YETI.TracerSettings.peak_height * 100)
+		self.peak_prominence_box.setValue(			QT_YETI.TracerSettings.peak_prominence * 100)
+		self.peak_width_box.setValue(				QT_YETI.TracerSettings.peak_width_px)
+		self.smoothing_stiffness_box.setValue(		QT_YETI.TracerSettings.smoothing_stiffness)
+		self.smoothing_order_box.setValue(			QT_YETI.TracerSettings.smoothing_order)
 		
 	def update_tracing_mode(self, new_item_string: str):
 		self.precision_tracing_mode = QT_YETI.TRACING_MODES[new_item_string]
 
-	@pyqtSlot()
-	def update_tracer_settings(self):
+	def update_TracerSettings(self):
 		"""
 		Update CurrentSettings (TracerSettings) from Qt button and box inputs
 
@@ -644,55 +645,47 @@ class TracerSettingsWindow(QWidget):
 		else:
 			QtYetiLogger(QT_YETI.ERROR, f"Direction was neither up nor down.", True)
 			raise ValueError(f"Unknown state for abs_order_number_m_direction: {self.abs_order_number_m_direction}. It has to be up or down. Please check {QT_YETI.SETTINGS_INI_PATH}")
-		self.CurrentSettings.abs_order_number_m_direction = direction_value
-		QT_YETI.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION = direction_value
 
-		self.CurrentSettings.first_absolute_order = 		self.first_absolute_order_box.value()
-		self.CurrentSettings.spotsize = 					self.spotsize_box.value()
-		self.CurrentSettings.image_slicer = 				self.image_slicer_box.isChecked()
-		self.CurrentSettings.image_slicer_separation_px = 	self.image_slicer_separation_box.value()
-		self.CurrentSettings.fit_function_poly_order = 		int(self.poly_order_box.value())
-		self.CurrentSettings.fit_function_use_x_offset =	self.poly_use_x_offset_checkbox.isChecked()
-		self.CurrentSettings.distance_to_edge = 			self.distance_to_image_edge_box.value()
-		self.CurrentSettings.samples_per_order = 			self.samples_per_order_box.value()
-		self.CurrentSettings.peak_distance_px = 			self.peak_distance_box.value()
-		self.CurrentSettings.peak_height = 					self.peak_height_box.value() / 100.0
-		self.CurrentSettings.peak_prominence = 				self.peak_prominence_box.value() / 100.0
-		self.CurrentSettings.peak_width_px =				self.peak_width_box.value()
-		self.CurrentSettings.smoothing_stiffness = 			self.smoothing_stiffness_box.value()
-		self.CurrentSettings.smoothing_order = 				self.smoothing_order_box.value()
+		#### FIXME #### Can we live with one setting?
+		QT_YETI.TracerSettings.abs_order_number_m_direction = direction_value
+
+		QT_YETI.TracerSettings.first_absolute_order = 			self.first_absolute_order_box.value()
+
+		QT_YETI.TracerSettings.spotsize_px = 					self.spotsize_box.value()
+		QT_YETI.TracerSettings.image_slicer = 					self.image_slicer_box.isChecked()
+		QT_YETI.TracerSettings.image_slicer_separation_px = 	self.image_slicer_separation_box.value()
+
+		QT_YETI.TracerSettings.fit_function_poly_order = 		int(self.poly_order_box.value())
+		QT_YETI.TracerSettings.fit_function_use_x_offset =		self.poly_use_x_offset_checkbox.isChecked()
+
+		QT_YETI.TracerSettings.distance_to_image_edge_px =		self.distance_to_image_edge_box.value()
+		QT_YETI.TracerSettings.samples_per_order = 				self.samples_per_order_box.value()
+
+		QT_YETI.TracerSettings.peak_distance_px = 				self.peak_distance_box.value()
+		QT_YETI.TracerSettings.peak_height = 					self.peak_height_box.value() / 100.0
+		QT_YETI.TracerSettings.peak_prominence = 				self.peak_prominence_box.value() / 100.0
+		QT_YETI.TracerSettings.peak_width_px =					self.peak_width_box.value()
+
+		QT_YETI.TracerSettings.smoothing_stiffness = 			self.smoothing_stiffness_box.value()
+		QT_YETI.TracerSettings.smoothing_order = 				self.smoothing_order_box.value()
 		
-		self.canvas.TracerSettings = self.CurrentSettings
-
+		#### HACK #### REMOVE ####
 		QT_YETI.echelle_fit_function = \
 			echelle_generate_fit_function( \
 				polynomial_order=QT_YETI.TracerSettings.fit_function_poly_order, \
 				offset_x0=QT_YETI.TracerSettings.fit_function_use_x_offset \
 			)
 
-	def load_tracer_settings_from_file(self):
-
-		QT_YETI.TracerSettings.readTracerConfig()
-
-		self.CurrentSettings = QT_YETI.TracerSettings
-		self.canvas.TracerSettings = self.CurrentSettings
-
-		self.update_controls()
-
-	def save_tracer_settings_to_file(self):
-		"""
-		Save the current state to the settings ini file
-		"""
-		self.update_tracer_settings()
-		self.CurrentSettings.saveTracerConfig()
-		self.canvas.TracerSettings = self.CurrentSettings
+		# Update ini file
+		QT_YETI.TracerSettings.saveTracerConfig()
+		### DONE ###
 
 	@pyqtSlot()
 	def start_tracer(self):
-		self.save_tracer_settings_to_file()
-		NewSettings = self.CurrentSettings
-		# Start tracing in Canvas Class
-		self.canvas.tracer_start_tracing(NewSettings, self.precision_tracing_mode)
+		"""
+		Start tracing in Canvas Class
+		"""
+		self.canvas.tracer_start_tracing(self.precision_tracing_mode)
 	
 	@pyqtSlot()
 	def toggle_tracer_line_visiblity(self):
@@ -720,15 +713,17 @@ class TabOrderTracer(QWidget):
 		# Setup and customize
 		self.setupTabStructure()
 		self.customizeTab()
-		self.connect_slots()
 
 		self.spectrogram_filename = ""
+
+		# Final touches
 
 		# for child in self.findChildren((QPushButton, QSpinBox)):
 		# 	child.setFocusPolicy(Qt.NoFocus)
 		# self.setFocusPolicy(Qt.ClickFocus)
 		# self.setFocus(Qt.NoFocusReason)
 		# self.activateWindow()
+		self.connect_slots()
 		self.setFocusPolicy(Qt.StrongFocus)
 		self.setFocus()
 
@@ -948,7 +943,7 @@ class TabOrderTracer(QWidget):
 		"""
 		Add custom action below.
 		"""
-		self.figure_canvas.CurrentSpectrogram.set_absolute_order_number_m(self.figure_canvas.TracerSettings.first_absolute_order)
+		self.figure_canvas.CurrentSpectrogram.set_absolute_order_number_m(QT_YETI.TracerSettings.first_absolute_order)
 		QtYetiLogger(QT_YETI.MESSAGE,f"Printing list of order.",True)
 		for order in self.figure_canvas.CurrentSpectrogram.order_list:
 			print(np.array(order.number_m))

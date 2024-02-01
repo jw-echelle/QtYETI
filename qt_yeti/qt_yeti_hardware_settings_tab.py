@@ -25,12 +25,12 @@ class TabHardwareSettings(QWidget):
 
 		self.setupTabStructure()
 		self.customizeTab()
-		self.connect_slots()
 		
 		self.read_settings_data()
 
 		self.FloatingWindow = None
 
+		self.connect_slots()
 		self.setFocusPolicy(Qt.StrongFocus)
 		self.setFocus()
 
@@ -114,47 +114,48 @@ class TabHardwareSettings(QWidget):
 
 	def read_settings_data(self):
 		try:
-			_ = QT_YETI.readHardwareConfig() # See below
+			QT_YETI.readHardwareConfig() # See below
 			QtYetiLogger(QT_YETI.MESSAGE,f"Hardware settings read.", True)
-			self.spectrometer_grating_density_per_mm.setValue(QT_YETI.SPECTROMETER_GRATING_DENSITY_PER_MM)
-			self.spectrometer_grating_incident_inplane_angle_deg.setValue(QT_YETI.SPECTROMETER_GRATING_INCIDENT_INPLANE_ANGLE_DEG)
-			self.spectrometer_grating_incident_outofplane_angle_deg.setValue(QT_YETI.SPECTROMETER_GRATING_INCIDENT_OUTOFPLANE_ANGLE_DEG)
-			self.spectrometer_grating_outgoing_angle_deg.setValue(QT_YETI.SPECTROMETER_GRATING_OUTGOING_ANGLE_DEG)
-			self.spectrometer_has_image_slicer.setChecked(QT_YETI.SPECTROMETER_HAS_IMAGE_SLICER)
-			self.spectrometer_image_slicer_separation_px.setValue(QT_YETI.SPECTROMETER_IMAGE_SLICER_SEPARATION_PX)
-			self.detector_focal_length_mm.setValue(QT_YETI.DETECTOR_FOCAL_LENGTH_MM)
-			self.detector_inplane_angle_deg.setValue(QT_YETI.DETECTOR_INPLANE_ANGLE_DEG)
-			self.detector_outofplane_angle_deg.setValue(QT_YETI.DETECTOR_OUTOFPLANE_ANGLE_DEG)
-			self.detector_x_pixels.setValue(QT_YETI.DETECTOR_X_PIXELS)
-			self.detector_y_pixels.setValue(QT_YETI.DETECTOR_Y_PIXELS)
-			self.detector_pixel_size_um.setValue(QT_YETI.DETECTOR_PIXEL_SIZE_UM)
-			self.detector_pixel_binning.setValue(QT_YETI.DETECTOR_PIXEL_BINNING)
-			self.detector_spot_size_px.setValue(QT_YETI.DETECTOR_SPOT_SIZE_PX)
-			self.detector_bit_depth.setValue(QT_YETI.DETECTOR_BIT_DEPTH)
+			self.spectrometer_grating_density_per_mm.setValue(					QT_YETI.SPECTROMETER_GRATING_DENSITY_PER_MM)
+			self.spectrometer_grating_incident_inplane_angle_deg.setValue(		QT_YETI.SPECTROMETER_GRATING_INCIDENT_INPLANE_ANGLE_DEG)
+			self.spectrometer_grating_incident_outofplane_angle_deg.setValue(	QT_YETI.SPECTROMETER_GRATING_INCIDENT_OUTOFPLANE_ANGLE_DEG)
+			self.spectrometer_grating_outgoing_angle_deg.setValue(				QT_YETI.SPECTROMETER_GRATING_OUTGOING_ANGLE_DEG)
+			self.spectrometer_has_image_slicer.setChecked(						QT_YETI.SPECTROMETER_HAS_IMAGE_SLICER)
+			self.spectrometer_image_slicer_separation_px.setValue(				QT_YETI.SPECTROMETER_IMAGE_SLICER_SEPARATION_PX)
+			self.detector_focal_length_mm.setValue(								QT_YETI.DETECTOR_FOCAL_LENGTH_MM)
+			self.detector_inplane_angle_deg.setValue(							QT_YETI.DETECTOR_INPLANE_ANGLE_DEG)
+			self.detector_outofplane_angle_deg.setValue(						QT_YETI.DETECTOR_OUTOFPLANE_ANGLE_DEG)
+			self.detector_x_pixels.setValue(									QT_YETI.DETECTOR_X_PIXELS)
+			self.detector_y_pixels.setValue(									QT_YETI.DETECTOR_Y_PIXELS)
+			self.detector_pixel_size_um.setValue(								QT_YETI.DETECTOR_PIXEL_SIZE_UM)
+			self.detector_pixel_binning.setValue(								QT_YETI.DETECTOR_PIXEL_BINNING)
+			self.detector_spot_size_px.setValue(								QT_YETI.DETECTOR_SPOT_SIZE_PX)
+			self.detector_bit_depth.setValue(									QT_YETI.DETECTOR_BIT_DEPTH)
 		except ValueError:
 			QtYetiLogger(QT_YETI.ERROR,f"Failed to read hardware settings. {ValueError.name}",True)
 
+
 	def save_settings_data(self):
-		QT_YETI.SPECTROMETER_GRATING_DENSITY_PER_MM = self.spectrometer_grating_density_per_mm.value()
-		QT_YETI.SPECTROMETER_GRATING_INCIDENT_INPLANE_ANGLE_DEG = self.spectrometer_grating_incident_inplane_angle_deg.value()
-		QT_YETI.SPECTROMETER_GRATING_INCIDENT_OUTOFPLANE_ANGLE_DEG = self.spectrometer_grating_incident_outofplane_angle_deg.value()
-		QT_YETI.SPECTROMETER_GRATING_OUTGOING_ANGLE_DEG = self.spectrometer_grating_outgoing_angle_deg.value()
-		QT_YETI.SPECTROMETER_HAS_IMAGE_SLICER = self.spectrometer_has_image_slicer.isChecked()
-		QT_YETI.SPECTROMETER_IMAGE_SLICER_SEPARATION_PX = self.spectrometer_image_slicer_separation_px.value()
-		QT_YETI.DETECTOR_FOCAL_LENGTH_MM = self.detector_focal_length_mm.value()
-		QT_YETI.DETECTOR_INPLANE_ANGLE_DEG = self.detector_inplane_angle_deg.value()
-		QT_YETI.DETECTOR_OUTOFPLANE_ANGLE_DEG = self.detector_outofplane_angle_deg.value()
-		QT_YETI.DETECTOR_X_PIXELS = self.detector_x_pixels.value()
-		QT_YETI.DETECTOR_Y_PIXELS = self.detector_y_pixels.value()
-		QT_YETI.DETECTOR_PIXEL_SIZE_UM = self.detector_pixel_size_um.value()
-		QT_YETI.DETECTOR_PIXEL_BINNING = self.detector_pixel_binning.value()
-		QT_YETI.DETECTOR_SPOT_SIZE_PX = self.detector_spot_size_px.value()
-		QT_YETI.DETECTOR_BIT_DEPTH = self.detector_bit_depth.value()
+		QT_YETI.SPECTROMETER_GRATING_DENSITY_PER_MM = 					self.spectrometer_grating_density_per_mm.value()
+		QT_YETI.SPECTROMETER_GRATING_INCIDENT_INPLANE_ANGLE_DEG = 		self.spectrometer_grating_incident_inplane_angle_deg.value()
+		QT_YETI.SPECTROMETER_GRATING_INCIDENT_OUTOFPLANE_ANGLE_DEG = 	self.spectrometer_grating_incident_outofplane_angle_deg.value()
+		QT_YETI.SPECTROMETER_GRATING_OUTGOING_ANGLE_DEG = 				self.spectrometer_grating_outgoing_angle_deg.value()
+		QT_YETI.SPECTROMETER_HAS_IMAGE_SLICER = 						self.spectrometer_has_image_slicer.isChecked()
+		QT_YETI.SPECTROMETER_IMAGE_SLICER_SEPARATION_PX = 				self.spectrometer_image_slicer_separation_px.value()
+		QT_YETI.DETECTOR_FOCAL_LENGTH_MM = 								self.detector_focal_length_mm.value()
+		QT_YETI.DETECTOR_INPLANE_ANGLE_DEG = 							self.detector_inplane_angle_deg.value()
+		QT_YETI.DETECTOR_OUTOFPLANE_ANGLE_DEG = 						self.detector_outofplane_angle_deg.value()
+		QT_YETI.DETECTOR_X_PIXELS = 									self.detector_x_pixels.value()
+		QT_YETI.DETECTOR_Y_PIXELS = 									self.detector_y_pixels.value()
+		QT_YETI.DETECTOR_PIXEL_SIZE_UM = 								self.detector_pixel_size_um.value()
+		QT_YETI.DETECTOR_PIXEL_BINNING = 								self.detector_pixel_binning.value()
+		QT_YETI.DETECTOR_SPOT_SIZE_PX = 								self.detector_spot_size_px.value()
+		QT_YETI.DETECTOR_BIT_DEPTH = 									self.detector_bit_depth.value()
 
 		try:
-			_ = QT_YETI.writeHardwareConfig()
+			QT_YETI.writeHardwareConfig()
 			QtYetiLogger(QT_YETI.MESSAGE,f"Hardware settings saved.",True)
-			
+
 		except ValueError:
 			QtYetiLogger(QT_YETI.ERROR,f"Failed to save hardware settings. {ValueError.name}",True)
 

@@ -1,3 +1,4 @@
+from bdb import effective
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -16,6 +17,7 @@ import scipy
 import csv
 import configparser # https://docs.python.org/3/library/configparser.html
 import time
+from typing import List,Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -46,6 +48,7 @@ class YetiColors:
 	YELLOW="#DDDD00"
 	MIDAS_GREEN="#00AA00"
 	YETI_GREY = "#DDDDDD"
+	YETI_WHITE = "#AAAAAA"
 
 # https://stackoverflow.com/questions/287871/how-do-i-print-colored-text-to-the-terminal
 # Check also module: colorama
@@ -93,7 +96,7 @@ class QtYetiSettings:
 	_instance = None
 
 	WINDOW_NAME = "QtYETI - Yeti\'s Extra-Terrestrial Investigations."
-	WINDOW_WIDTH = 1344
+	WINDOW_WIDTH = 1345
 	WINDOW_HEIGHT = 800
 
 	TRACER_WINDOW_NAME = "QtYETI - Order Tracer Settings"
@@ -176,7 +179,9 @@ class QtYetiSettings:
 			self.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION = config.get("HARDWARE.Detector","DetectorOrderNumberMagnitudeIncreaseDirection")
 
 			del config
-			print(ShellColors.OKGREEN+ f"\r\nSucessfully read QtYetiSettings from File." + ShellColors.ENDC)
+
+			#### DEBUG_NOTE ####
+			#print(ShellColors.OKGREEN+ f"\r\nSucessfully read QtYetiSettings from File." + ShellColors.ENDC)
 			return
 		
 		except Exception as error:
@@ -215,6 +220,9 @@ class QtYetiSettings:
 				config.write(configfile)
 			del config
 
+			self.TracerSettings.readTracerConfig()
+			print(ShellColors.OKGREEN+ f"Hardware Config saved" + ShellColors.ENDC)
+
 			return
 		
 		except Exception as error:
@@ -224,6 +232,21 @@ class QtYetiSettings:
 	def initializeTracerSettings(self):
 		self.TracerSettings = QtYetiTracerSettings("from_file", self.SETTINGS_INI_PATH)
 
+	def _calculate_summation_range(self) -> np.ndarray:
+
+		odd_spot_size = int(2* (self.DETECTOR_SPOT_SIZE_PX // 2) +1)
+
+		relative_summation_range = np.arange(-odd_spot_size//2, +odd_spot_size//2 +1)
+
+		if( self.SPECTROMETER_HAS_IMAGE_SLICER == True):
+			# With an imageslicer, we want to sum up N times the image slicer peak separation, with an offset by half a spot
+			relative_summation_range = np.arange(-odd_spot_size//2,((self.SPECTROMETER_IMAGE_SLICER_TRACES_PER_ORDER - 1) * self.SPECTROMETER_IMAGE_SLICER_SEPARATION_PX) + odd_spot_size//2 +1)
+			
+		if(  QT_YETI.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION == "up"):
+			relative_summation_range = -relative_summation_range
+
+		return relative_summation_range
+
 #%%
 class QtYetiTracerSettings:
 	"""
@@ -232,7 +255,9 @@ class QtYetiTracerSettings:
 	def __init__(self, origin: str = None, settings_path = ""):
 		self.settings_path = settings_path
 
+		self.effective_slit_height = 1
 		self.readTracerConfig()
+
 
 	def readTracerConfig(self):
 		try:
@@ -242,6 +267,11 @@ class QtYetiTracerSettings:
 
 			self.first_absolute_order =			config.getint("TRACER","TracerFirstAbsoluteOrder")
 			self.abs_order_number_m_direction = config.get("HARDWARE.Detector","DetectorOrderNumberMagnitudeIncreaseDirection").lower()
+
+			self.spotsize_px = 					config.getint("HARDWARE.Detector","DetectorSpotSizePixels")
+			self.image_slicer = 				config.getboolean("HARDWARE.Spectrometer","SpectrometerHasImageslicer")
+			self.image_slicer_traces_per_order= config.getint("HARDWARE.Spectrometer","SpectrometerImageslicerTracesPerOrder")
+			self.image_slicer_separation_px = 	config.getint("HARDWARE.Spectrometer","SpectrometerImageslicerSeparationPixels")
 
 			self.fit_function_poly_order =		config.getint("TRACER","TracerFitFunctionPolynomialOrder")
 			self.fit_function_use_x_offset =	config.getboolean("TRACER","TracerFitFunctionUseXOffset")
@@ -257,12 +287,12 @@ class QtYetiTracerSettings:
 			self.smoothing_stiffness = 			config.getfloat("TRACER","TracerSmoothingStiffness")
 			self.smoothing_order = 				config.getint("TRACER","TracerSmoothingOrder")
 
-			self.spotsize_px = 					config.getint("HARDWARE.Detector","DetectorSpotSizePixels")
-			self.image_slicer = 				config.getboolean("HARDWARE.Spectrometer","SpectrometerHasImageslicer")
-			self.image_slicer_separation_px = 	config.getint("HARDWARE.Spectrometer","SpectrometerImageslicerSeparationPixels")
+			self.effective_slit_height = self.get_effective_slit_height()
 
 			del config
-			print(ShellColors.OKGREEN+ f"→ Sucessfully read TracerSettings from File." + ShellColors.ENDC)
+
+			#### DEBUG_NOTE ####
+			# print(ShellColors.OKGREEN+ f"→ Sucessfully read TracerSettings from File." + ShellColors.ENDC)
 			return
 
 		except Exception as error:
@@ -287,7 +317,7 @@ class QtYetiTracerSettings:
 
 			self.spotsize_px = 					1
 			self.image_slicer = 				False
-			self.image_slicer_separation_px = 	0
+			self.image_slicer_separation_px = 	1
 
 	def saveTracerConfig(self):
 		config = configparser.ConfigParser()
@@ -296,6 +326,10 @@ class QtYetiTracerSettings:
 
 		config.set("TRACER","TracerFirstAbsoluteOrder",f"{self.first_absolute_order}")
 		config.set("HARDWARE.Detector","DetectorOrderNumberMagnitudeIncreaseDirection",f"{self.abs_order_number_m_direction}")
+
+		config.set("HARDWARE.Detector","DetectorSpotSizePixels",f"{self.spotsize_px}")
+		config.set("HARDWARE.Spectrometer","SpectrometerHasImageslicer",f"{self.image_slicer}")
+		config.set("HARDWARE.Spectrometer","SpectrometerImageslicerSeparationPixels",f"{self.image_slicer_separation_px}")
 
 		config.set("TRACER","TracerFitFunctionPolynomialOrder",f"{self.fit_function_poly_order}")
 		config.set("TRACER","TracerFitFunctionUseXOffset",f"{self.fit_function_use_x_offset}")
@@ -316,7 +350,18 @@ class QtYetiTracerSettings:
 		del config
 
 		# Update QT_YETI.SETTINGS
-		QT_YETI.readHardwareConfig() 
+		QT_YETI.readHardwareConfig()
+		self.readTracerConfig()
+
+	def get_effective_slit_height(self) -> int:
+
+		odd_spot_size = int(2 * (self.spotsize_px//2) + 1)
+		effective_slit_height = odd_spot_size
+
+		if( self.image_slicer == True):
+			effective_slit_height = odd_spot_size + (self.image_slicer_traces_per_order - 1) * self.image_slicer_separation_px
+
+		return effective_slit_height
 
 #%%
 class QtYetiReferenceSpectrograms:

@@ -7,6 +7,8 @@ from dataclasses import dataclass
 import sys
 import os
 
+from matplotlib.transforms import Transform
+
 from qt_yeti.qt_yeti_general import *
 from qt_yeti.qt_yeti_functions import *
 from qt_yeti.qt_yeti_hardware_settings_tab import *
@@ -37,51 +39,60 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 
 		self.navigationbar = NavigationToolbar2QT(self, parent=None)
 
-		# Setup sample spectrogram		
 		self.CurrentSpectrogram = Spectrogram("QtYeti.Sample")
 		self.active_order_index = 0
-		self.summation_method = "simple_sum"
+		self.summation_method = QT_YETI.SUMMATIONS["Extraction: Simple Sum"]
 
 		# Setup all plots and callbacks
 		self.setup_plots()
+		self.load_spectrogram("QtYeti.Sample")
+		self.setup_callbacks()
 
 		# Final touch
-		self.control_figure.tight_layout()
+		#self.control_figure.tight_layout()
+		#### FIXME #### → Hardcoded
+		self.control_figure.subplots_adjust(top=0.995,bottom=0.0,left=0.055,right=0.995,hspace=0.1,wspace=0.1)
 
 	### Plots and Callbacks ###
 	def setup_plots(self):
 
+		# Scale type
 		self.scale_type = "linear"
 
 		# Axes
-		self.axes_spectrogram = plt.subplot2grid((16,16),(0,0),colspan=16, rowspan = 9, fig=self.control_figure, label="Full_Spectrogram")
-		self.axes_spectrum = plt.subplot2grid((16,16),(9,0),colspan=16, rowspan = 6, fig=self.control_figure, label="Extracted_Spectrum")
+		self.axes_spectrogram = plt.subplot2grid((16,16),(0,0),colspan=16, rowspan = 8, fig=self.control_figure, label="Full_Spectrogram")
+		self.axes_trace_spectrogram = plt.subplot2grid((16,16),(8,0),colspan=16, rowspan = 1, fig=self.control_figure, label="Single_Trace_Spectrogram", sharex=self.axes_spectrogram)
+		self.axes_spectrum = plt.subplot2grid((16,16),(9,0),colspan=16, rowspan = 6, fig=self.control_figure, label="Extracted_Spectrum", sharex=self.axes_spectrogram)
+
+		# 2D Plots
+		self.spectrogram_plot = self.axes_spectrogram.imshow([[0]],vmin=0, vmax=1, cmap = "inferno",interpolation="none", aspect="auto", label = "2D_Spectrogram")
+		self.trace_spectrogram_plot = self.axes_trace_spectrogram.imshow([[0]],vmin=0, vmax=1, cmap="inferno",interpolation="none",aspect="auto",label="Trace_Spectrogram")
+
+		# 1D Plots
+		[self.spectrum_plot] 		= self.axes_spectrum.plot(0,0, linewidth=0.6, label="Data_Spectrum")
+		[self.spectrum_plot_pixels] = self.axes_spectrum.plot(0,0, alpha=0.6, linewidth=0.45, drawstyle="steps-mid", label="Data_Spectrum_Pixel_Intensity")
+		[self.order_poly_plot] =  self.axes_spectrogram.plot(0,0,alpha=0.75,linewidth="0.6",color=YetiColors.RED, label="Order_Poly_Plot")
+		[self.order_higher_row_plot] = self.axes_spectrogram.plot(0,0,alpha=0.25,linewidth="0.5",linestyle="dashed",color=YetiColors.YETI_GREY, label="Order_Summation_Higher_Row")
+		[self.order_lower_row_plot] =  self.axes_spectrogram.plot(0,0,alpha=0.25,linewidth="0.5",linestyle="dashed",color=YetiColors.YETI_GREY, label="Order_Summation_Lower_Row")
+
+		# Text
+		self.axes_spectrogram_text = self.axes_spectrogram.text(transform=self.axes_spectrogram.transAxes, ha='left', va='top', x=0.005, y=0.98, weight="bold", color=YetiColors.YETI_WHITE, s=f"No data loaded.", label="loaded_file_path")
+		self.axes_trace_spectrogram_text = self.axes_trace_spectrogram.text(transform=self.axes_trace_spectrogram.transAxes, ha='left', va='top', x=0.005, y=0.98, color=YetiColors.YETI_WHITE, s=f"No data loaded.", label="texts_current_trace")
+		self.axes_spectrum_text = self.axes_spectrum.text(transform=self.axes_spectrum.transAxes, ha='left', va='top', x=0.005, y=0.98, s=f"No data loaded.", label="texts_current_order")
+
+		# Labels
 		self.axes_spectrogram.set_ylabel(r"$m · \lambda(X,Y)$")
 		self.axes_spectrum.set_xlabel(r"$\lambda(X,Y)$")
 		self.axes_spectrum.set_ylabel(r"Counts (arb. u.)")
 
-		self.spectrogram_plot = self.axes_spectrogram.imshow(self.CurrentSpectrogram.data,\
-			vmin=self.CurrentSpectrogram.intmin,\
-			vmax=self.CurrentSpectrogram.intmax,\
-			cmap = 'inferno',\
-			interpolation='none',\
-			extent=[0, self.CurrentSpectrogram.xsize-1, 0, self.CurrentSpectrogram.ysize-1],\
-			aspect='auto',\
-			label = "2D_Spectrogram")
-		[self.spectrum_plot] 		= self.axes_spectrum.plot(self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[self.CurrentSpectrogram.ysize//2,:], linewidth=0.6, label="Data_Spectrum")
-		[self.spectrum_plot_pixels] = self.axes_spectrum.plot(self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[self.CurrentSpectrogram.ysize//2,:], alpha=0.6, linewidth=0.45, drawstyle="steps-mid", label="Data_Spectrum_Pixel_Intensity")
-		self.axes_spectrum.set_xlim( self.CurrentSpectrogram.xrange.min(), self.CurrentSpectrogram.xrange.max() )
-		self.axes_spectrum.set_ylim( self.CurrentSpectrogram.intmin, self.CurrentSpectrogram.intmax )
+		# Visibility settings
+		self.axes_spectrogram.axes.xaxis.set_visible(False)
+		self.axes_trace_spectrogram.axes.xaxis.set_visible(False)
+		self.axes_trace_spectrogram.axes.yaxis.set_visible(False)
 
-		[self.order_poly_plot] =  self.axes_spectrogram.plot(0,0,alpha=0.75,linewidth="0.5",color=YetiColors.RED, label="Order_Poly_Plot")
-		[self.order_higher_row_plot] = self.axes_spectrogram.plot(0,0,alpha=0.25,linewidth="0.5",color=YetiColors.YETI_GREY, label="Order_Summation_Higher_Row")
-		[self.order_lower_row_plot] =  self.axes_spectrogram.plot(0,0,alpha=0.25,linewidth="0.5",color=YetiColors.YETI_GREY, label="Order_Summation_Lower_Row")
-
-		# Text
-		self.axes_spectrogram_text = self.axes_spectrogram.text(transform=self.axes_spectrogram.transAxes, ha='left', va='top', x=0.005, y=0.98, label="loaded_file_path", weight="bold", color="#AAAAAA", s=f"No data loaded.")
-		self.axes_spectrum_text = self.axes_spectrum.text(transform=self.axes_spectrum.transAxes, ha='left', va='top', x=0.005, y=0.98, s=f"No data loaded.", label="texts_current_order")
-
-		# Event handling
+	# Event handling
+	def setup_callbacks(self):
+		
 		self.mpl_connect('button_release_event', self.canvas_key_or_mouse_event)
 		self.mpl_connect('key_press_event', self.canvas_key_or_mouse_event)
 		self.mpl_connect("scroll_event", self.canvas_scroll_event)
@@ -99,59 +110,81 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 			nearest_order_index = self.find_nearest_order_index(evt_x, evt_y)
 			if(nearest_order_index != np.NaN):
 				self.update_spectrum(nearest_order_index)
-
-			QtYetiLogger(QT_YETI.MESSAGE,f"Nearest order number {nearest_order_index + 1}")
+			#### REMOVE #### QtYetiLogger(QT_YETI.MESSAGE,f"Nearest order number {nearest_order_index + 1}")
 
 		pass
 
 	def canvas_scroll_event(self, event):
 		if(event.inaxes == self.axes_spectrogram):
-			#### REMOVE #### QtYetiLogger(QT_YETI.MESSAGE,f"Event {event}, Event Type: {type(event)}, Event Button: {event.button}, Event Step: {event.step}")
 			new_index = int(np.clip(self.active_order_index + int(event.step),a_min=1,a_max=len(self.CurrentSpectrogram.order_list)-1))
 			self.active_order_index = new_index
 			self.update_spectrum(self.active_order_index)
+			#### REMOVE #### QtYetiLogger(QT_YETI.MESSAGE,f"Event {event}, Event Type: {type(event)}, Event Button: {event.button}, Event Step: {event.step}")
+
+	def update_plot_limits(self):
+		## Plot spectrogram
+		# https://stackoverflow.com/questions/17835302/how-to-update-matplotlibs-imshow-window-interactively
+
+		xmin,xmax,ymin,ymax = 0,self.CurrentSpectrogram.xsize-1 , 0,self.CurrentSpectrogram.ysize-1
+
+		# Axis limits
+		self.axes_spectrogram.set_xbound(xmin,xmax)
+		self.axes_trace_spectrogram.set_xbound(xmin, xmax)
+		self.spectrogram_plot.set_extent([xmin, xmax, ymin, ymax])
+		self.trace_spectrogram_plot.set_extent([xmin, xmax, ymin, QT_YETI.TracerSettings.effective_slit_height])
+
+		self.axes_spectrum.set_xlim( xmin, xmax )
 
 	# Plotting
-	def load_spectrogram(self, requested_filename, HeaderDataUnit: fits.PrimaryHDU | fits.ImageHDU = None):
+	def load_spectrogram(self, requested_filename: str, HeaderDataUnit: fits.PrimaryHDU | fits.ImageHDU = None) -> Tuple[int,int]:
+		"""
+		Load a spectrogram from a provided HDU (and use filename).
+
+		### Details
+
+		#### Parameters:
+			`requested_filename` (str): Provided filename
+			`HeaderDataUnit` (fits.PrimaryHDU | fits.ImageHDU, optional): Provided HDU (astropy object). Defaults to None.
+
+		#### Returns:
+			`Tuple[int,int]`: Returns intensity minimum and intensity maximum of loaded spectrogram.
+		"""
 		if(requested_filename == None):
 			QtYetiLogger(QT_YETI.ERROR,"No file name object provided.")
 
 		# Update CurrentSpectrogram
-		int_min, int_max = self.CurrentSpectrogram.update_spectrogram(requested_filename, HeaderDataUnit)
-		sample_data = (self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[np.uint32(self.CurrentSpectrogram.ysize/2),:])
+		intmin, intmax = self.CurrentSpectrogram.update_spectrogram(requested_filename, HeaderDataUnit)
 
+		mid_index = self.CurrentSpectrogram.ysize//2
+		sample_data = (self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[self.CurrentSpectrogram.ysize//2,:])
 		self.row_of_intensity_max, self.column_of_intensity_max = np.unravel_index(np.argmax(self.CurrentSpectrogram.data), self.CurrentSpectrogram.shape)
 
-		## Plot spectrogram
-		# https://stackoverflow.com/questions/17835302/how-to-update-matplotlibs-imshow-window-interactively
-		#self.spectrogram_plot.set_data(self.CurrentSpectrogram.data)
+		# Set data in plots
 		self.spectrogram_plot.set_data(self.CurrentSpectrogram.data)
-		self.spectrogram_plot.set_extent([0, self.CurrentSpectrogram.xsize-1, 0, self.CurrentSpectrogram.ysize-1])
-		self.spectrogram_plot.set_clim(int_min, int_max)
+		self.trace_spectrogram_plot.set_data(self.CurrentSpectrogram.data[mid_index : mid_index + QT_YETI.TracerSettings.effective_slit_height-1,:]) 
+		self.spectrum_plot.set_data(sample_data)
+		self.spectrum_plot_pixels.set_data(sample_data)
+
+		# Take care of limits
+		self.update_plot_limits()
+		self.spectrogram_plot.set_clim(intmin, intmax)
+		self.trace_spectrogram_plot.set_clim(intmin, intmax)
+		self.axes_spectrum.set_ylim( intmin, intmax )
 
 		# Change text on spectrogram
 		self.axes_spectrogram_text.set_text(f"{requested_filename}")
-
-		self.spectrum_plot.set_data(sample_data)
-		self.spectrum_plot_pixels.set_data(sample_data)
-		# self.spectrum_plot.axes.set_ylim([0, int_max])
-		self.axes_spectrum.set_xlim([0, self.CurrentSpectrogram.xsize-1])
-		#self.axes_spectrum.set_ylim([0, 1.1*self.CurrentSpectrogram.data.max()])
-
-
 		
 		QtYetiLogger(QT_YETI.MESSAGE,f"{requested_filename} loaded.")
 
 		self.draw_idle()
 
-		return int_min, int_max
+		return intmin, intmax
 
 	def update_intensities(self, int_min=0, int_max=1):
 		""" Set color / intensity limit """
 		self.spectrogram_plot.set_clim(vmin=int_min, vmax=int_max)
-#		self.axes_spectrum.set_xlim(int_min, int_max)
+		self.trace_spectrogram_plot.set_clim(vmin=int_min, vmax=int_max)
 		self.axes_spectrum.set_ylim(int_min, int_max)
-
 		self.update_scale_type(self.scale_type, int_min, int_max)
 		self.draw_idle()
 
@@ -174,11 +207,9 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 			
 			self.scale_type = new_scale_type
 			self.spectrogram_plot.set_norm(new_normalization)
+			self.trace_spectrogram_plot.set_norm(new_normalization)
 			self.axes_spectrum.set_yscale(new_scale_type)
 			self.draw_idle()
-
-	def load_order_information(self, requested_filename = ""):
-		Spectrogram.load_order_information(requested_filename)
 
 	def plot_spectrum(self, order_index: int) -> None:
 		"""
@@ -197,6 +228,7 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 		x_range, spectral_data, extracted_rows, extracted_columns \
 			= echelle_trace_optimal_extraction(self.CurrentSpectrogram, self.active_order_index, self.summation_method)
 
+		# Get Current Order Information
 		CurrentOrder = self.CurrentSpectrogram.order_list[self.active_order_index]
 		order_number = CurrentOrder.number_m
 		order_number_calibrated = CurrentOrder.order_number_calibrated
@@ -206,36 +238,41 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 		# Plotting
 		self.spectrum_plot.set_data( x_range, spectral_data )
 		self.spectrum_plot_pixels.set_data( x_range, spectral_data )
-		#### REMOVE ##### self.calibration_help_plot.set_data( echelle_trace_quick_plot(self.CurrentSpectrogram, self.active_order_index, spectral_data.max()) )
-		# Plot an indication of there the order was traced
 		self.order_poly_plot.set_data(x_range, fitted_polynomial)
+		self.order_higher_row_plot.set_data(x_range, fitted_polynomial- QT_YETI._calculate_summation_range()[0])
+		self.order_lower_row_plot.set_data(x_range, fitted_polynomial - QT_YETI._calculate_summation_range()[-1])
+
+		# Populate the trace matrix before plotting it
+		#### FIXME #### If different order info already loaded this here crashes
+		col_start = col(extracted_columns[0][0], self.CurrentSpectrogram.xsize) 
+		trace_image = np.ones((len(extracted_rows), self.CurrentSpectrogram.xsize))+1
+		trace_image[:, col_start:col_start+extracted_columns.shape[1]] = self.CurrentSpectrogram.data[extracted_rows, extracted_columns]
+		self.trace_spectrogram_plot.set_data(trace_image)
+
+		# Dynamic highlighting
+		dynamic_highlighting_matrix = np.ones(self.CurrentSpectrogram.shape)
+		dynamic_highlighting_matrix[extracted_rows, extracted_columns] = 1.75
+		self.spectrogram_plot.set_data(dynamic_highlighting_matrix * self.CurrentSpectrogram.data)
 
 		# Adapt axes values
 		self.axes_spectrum.set_ylim([0, 1.1 * spectral_data.max()])
 
-		# Delete previous
+		# Delete previous texts
 		delete_mpl_plt_object_by_label(self.axes_spectrogram.texts,"trace_description")
-
-		# Annotate trace
-		text_x_coordinate = QT_YETI.ANNOTATION_X_COORDINATE
-		text_y_coordinate = 5 + np.asarray(echelle_order_fit_function(text_x_coordinate, *fit_parameters)).max()
-		self.axes_spectrogram.text(text_x_coordinate, text_y_coordinate,f"Relative trace number {order_index+1}",fontsize=6,color=YetiColors.YETI_GREY,label="trace_description")
 
 		# Change Order Number
 		if(self.axes_spectrum.texts):
 			order_type = f"Relative order"
 			if( order_number_calibrated ):
 				order_type = f"Absolute order"
-			self.axes_spectrum_text.set_text(f"{order_type}: {order_number}")
+			output_text = f"{order_type}: {order_number}"
+			self.axes_spectrum_text.set_text(output_text)
+			self.axes_trace_spectrogram_text.set_text(output_text)
 
-		"""" Experimental - Dynamic masking"""
-		dynamic_masking_matrix = np.ones(self.CurrentSpectrogram.shape)
-		dynamic_masking_matrix[extracted_rows, extracted_columns] = 1.75
-		
-		masked_data = self.CurrentSpectrogram.data * dynamic_masking_matrix
-		self.spectrogram_plot.set_data(masked_data)
-		#### REMOVE ##### self.spectrogram_plot_cal.set_data(dynamic_masking_matrix)
-		""""""
+		# Annotate trace
+		text_x_coordinate = QT_YETI.ANNOTATION_X_COORDINATE
+		text_y_coordinate = 5 + np.asarray(echelle_order_fit_function(text_x_coordinate, *fit_parameters)).max()
+		self.axes_spectrogram.text(text_x_coordinate, text_y_coordinate,f"Relative trace number {order_index+1}",fontsize=6,color=YetiColors.YETI_GREY,label="trace_description")
 
 		self.draw_idle()
 
@@ -261,6 +298,9 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 		
 		return int(self.active_order_index)
 
+	def load_order_information(self, requested_filename = ""):
+		Spectrogram.load_order_information(requested_filename)
+
 	def find_nearest_order_index(self, evt_x:int, evt_y:int) -> int:
 		"""
 		Click on any position within the canvas and get back the nearest order index
@@ -284,7 +324,7 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 			QtYetiLogger(QT_YETI.ERROR,"Nearest Order not found. Returning np.NAN.")
 			return np.NAN
 
-	def trigger_order_extraction( self, extraction_mode:str ) -> None:
+	def trigger_order_extraction( self, extraction_mode: str ) -> None:
 		"""
 		Trigger order extraction
 		### Details
@@ -294,7 +334,6 @@ class SpectrometerCanvas( FigureCanvasQTAgg ):
 		"""
 		# Check if orders are available
 		if(Spectrogram.order_list):
-			
 			echelle_order_spectrum_to_fits(self.CurrentSpectrogram,\
 				extraction_mode=extraction_mode, summation_method=self.summation_method,\
 				order_index=self.active_order_index, single_trace_mode=False \
@@ -314,13 +353,15 @@ class TabSpectrometer(QWidget):
 		# Setup and customize
 		self.setupTabStructure()
 		self.customizeTab()
-		self.connect_slots()
 		
+		# Final touches
+
 		# for child in self.findChildren((QPushButton, QSpinBox)):
 		# 	child.setFocusPolicy(Qt.NoFocus)
 		# self.setFocusPolicy(Qt.ClickFocus)
 		# self.setFocus(Qt.NoFocusReason)
 		# self.activateWindow()
+		self.connect_slots()
 		self.setFocusPolicy(Qt.StrongFocus)
 		self.setFocus()
 
@@ -468,9 +509,9 @@ class TabSpectrometer(QWidget):
 		y_max = self.y_max.value()
 		y_min = self.y_min.value()
 		if((x_min < x_max) | (y_min < y_max)):
-			self.figure_canvas.axes_spectrogram.set_xlim(x_min, x_max)
-			self.figure_canvas.axes_spectrogram.set_ylim(y_min, y_max)
-			#self.figure_canvas.axes_flat_rows.set_ylim(y_min, y_max)
+			#self.figure_canvas.axes_spectrogram.set_xlim(x_min, x_max)
+			#self.figure_canvas.axes_spectrogram.set_ylim(y_min, y_max)
+			self.figure_canvas.axes_flat_rows.set_ylim(y_min, y_max)
 			self.figure_canvas.axes_spectrum.set_xlim(x_min, x_max)
 			self.figure_canvas.draw_idle()
 
@@ -540,3 +581,5 @@ class SpectrometerSettings(QWidget):
 	def closeEvent(self,event):
 		# self.widget_parent.spectrometer_tab_action_layout.addWidget(self.tscheild)
 		super().closeEvent(event)
+
+# %%

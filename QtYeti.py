@@ -27,6 +27,8 @@ class MainWindow(QMainWindow):
 		self.resize(QSize(QT_YETI.WINDOW_WIDTH, QT_YETI.WINDOW_HEIGHT))
 		self.setWindowIcon(QIcon(QT_YETI.IMAGE_PATH))
 
+		# print(self.pos().x(),self.pos().y())
+
 		#self.setFocusPolicy(Qt.NoFocus)
 		#self.setWindowOpacity(0.75)
 
@@ -81,36 +83,40 @@ if __name__ == '__main__':
 				the points in between use np.argmax() to proagate along the trace\r\n\
 			• Further improve precision mode.\r\n\
 			• Add Multithreading → e.g. when tracing in precision mode → Learn from HeliumWatchDawg.\r\n\
+		• Freaky edge case: If detector Pixel width = 1, the tracer will fail and the program will crash\r\n\
 		• Extraction of data:\r\n\
 			• Imageslicer summation-direction is currently hardcoded. What if the spectrum is flipped and the main order is above or below\r\n\
 		• Fit function generation:\r\n\
-			• [done] (1) Fix update of fit_funciton\r\n\
-			• [done] (2): Spectrogram.update_fit_function() then also generates the wrong string\r\n\
-		!!!!• (3): Spectrogram.load_order_settings() needs an info to check whether the spectrum is calibrated\r\n\
-		• Fit optimization with division factors. See TracerCanvas\r\n\
+			• Read in Order Information File: Can the fit function be determined? Maybe number of parameters? Header?\r\n\
+			• Spectrogram.load_order_settings() needs an info to check whether the spectrum is calibrated\r\n\
 		• Fitting of traces with weighting. Flatfield images tend to become darker at the edges of an image on simple Echelles.\r\n\
 			• Make a combobox the tracer window for standard (unweighted) and weighted trace fitting\r\n\
 		• [50%] Exporting orders to FITs\r\n\
 			• Extract all orders at once\r\n\
+			• Order dependent Summation: Y profile, fit peaks, create function Maybe even (x,y) dependen (LoThAr)\r\n\
 			• [done] Extract Single Spectrum\r\n\
-		• [50%] Improve and unify plotting behaviour. It's a mess.\r\n\
+		• [50%] Plotting: Improve and unify plotting behaviour. It's a mess.\r\n\
 			• Pass Plot Objects? → identify, and change axes limits accordingly\r\n\
 			• [50%] Synchonize scrolling in canvas and order number - Still a little hacky\r\n\
-		• Test data for github and documentation\r\n\
+			• [50%] (do for calibrator for 100%) Zooming in Spectrogram does not work??? Subclassing NavigationBar to trigger proper zooming of all plots OR sharex=...\r\n\
+		• [50%] Test data for github and documentation\r\n\
 		• Calibration of orders\r\n\
 			• Think of calibrating on 1D Spectrum level\r\n\
 			• Indicator for expected dispersion dλ(x)/dx in nm/μm\r\n\
+			• Subtraction of Stray Light via Spline or something. Go in intervals and find argmin[]\r\n\
 		• [25%] Blaze-Correction\r\n\
 			• Added Flatfield as Reference Spectrogram\r\n\
 			• Science data needs to be added\r\n\
+			• Paper from 2015\r\n\
 		• Load ThAr into Calibrator Tab, click on ThAr Peak and give this order the absolute m number via a window\r\n\
-		• TracerSettings to be read into QT_YETI_Settings\r\n\
 		• Make floating Hardware Settings available via actions menu and shortcut\r\n\
 			• Sort Hardware & Settings\r\n\
+			• Make it save values immediately\r\n\
 		• Geometric Calibrator Settings in qt_yeti_settings.ini\r\n\
 		• Compactify tracer_find_lines_dots() wuth _set_visibility()\r\n\
 		• INI File + Class for designs of plots and tabs.\r\n\
 		• Unify DocStrings\r\n\
+		• Show coordinates of main window (x,y,w,h) in maybe statusbar\r\n\
 		• Check the includion of PathLib\r\n\
 		• call it trace or order? → Rename the Order Class to Trace?\r\n\
 		• Refactor Tabs/Canvases into more abstract classes\r\n\
@@ -119,6 +125,8 @@ if __name__ == '__main__':
 		• Think of single spectrum viewer via bintables or other means\r\n\
 		• ...\r\n"
 
+		# • [done] Fit Function Generation: (1) Fix update of fit_funciton\r\n\
+		# • [done] Fit Function Generation: (2): Spectrogram.update_fit_function() then also generates the wrong string\r\n\
 		# • [done] Tracer: Issues with orders that leave the imaging field → e.g. Darkfield corrected FLISES masterflat spectra\r\n\
 		# • [done] TracerSettings in QtYetiSettings() and fixed TracerSettings reads in TracerTab
 		# • [done] DARKFIELD corrected spectra dont work due to peak finding method\r\n\

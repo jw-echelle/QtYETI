@@ -604,11 +604,12 @@ class GernericTab(QWidget):
 		# Setup and customize
 		self.setupTabStructure()
 		self.customizeTab()
-		self.connect_slots()
 		
 		for child in self.findChildren((QWidget, QPushButton, QSpinBox)):
 			child.setFocusPolicy(Qt.NoFocus)
-		self.setFocusPolicy(Qt.NoFocus)
+		self.connect_slots()
+		self.setFocusPolicy(Qt.StrongFocus)
+		self.setFocus()
 
 	def setupTabStructure(self):
 		# Top Level Tab layout
@@ -1495,15 +1496,18 @@ def echelle_trace_optimal_extraction(CurrentSpectrogram: Spectrogram, order_inde
 	# We want to use this and get the data that is half a spot size above the order/trace center and
 	# another half of a spot size below the center.
 	# Generate an odd-valued spot size via (modulus 2) and shift by floor(half a spot size) (parenthesis stritcly necessary)
-	odd_spot_size = detector_spot_size + (1 - detector_spot_size % 2)
-	row_indices = np.arange(0, odd_spot_size) - (detector_spot_size//2)
+	odd_spot_size = int(2* (detector_spot_size//2)+1)
 
 	# Brute force summation for image sliced spectra
 	# Start at the main trace and sum over all remaining traces of an order group
+	row_indices = np.arange(-odd_spot_size//2, +odd_spot_size//2 +1)
 	if( image_sliced == True):
 		# With an imageslicer, we want to sum up N times the image slicer peak separation, with an offset by half a spot
-		row_indices = np.arange(0, odd_spot_size + (image_sliced_traces_per_group - 1) * image_sliced_pixel_distance) - (detector_spot_size//2)
+		row_indices = np.arange(-odd_spot_size//2,((image_sliced_traces_per_group - 1) * image_sliced_pixel_distance) + odd_spot_size//2 +1)
 		
+	if(  QT_YETI.DETECTOR_ORDER_NUMBER_MAGNITUDE_INCREASE_DIRECTION == "up"):
+		row_indices = -row_indices
+
 	number_of_rows = len(row_indices)
 	number_of_columns = len(checked_x_range)
 
@@ -1530,7 +1534,7 @@ def echelle_trace_optimal_extraction(CurrentSpectrogram: Spectrogram, order_inde
 
 		# Stack 'discretized_rows' on top of itself while adding each time one element from 'row_indices'
 		# Example: d_r = [4,5,6,7], r_i = [-1,0,1] → [[3,4,5,6],[4,5,6,7],[5,6,7,8]]
-		extraction_rows = row_indices[:, np.newaxis] + discretized_rows
+		extraction_rows = row_indices[:, np.newaxis] + discretized_rows 
 
 		# Prevent overflows by clipping the array
 		extraction_rows = extraction_rows.clip(0,CurrentSpectrogram.ysize-1)
