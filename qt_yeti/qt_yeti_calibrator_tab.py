@@ -25,10 +25,11 @@ from matplotlib.figure import Figure
 
 #%%
 ###############################################################################################################################
-
+class TabCalibrator:
+	pass
 class CalibratorCanvas( FigureCanvasQTAgg ):
 
-	def __init__(self, parent=None, width=QT_YETI.MATPLOTLIB_CANVAS_WIDTH, height=QT_YETI.MATPLOTLIB_CANVAS_HEIGHT, dpi=QT_YETI.MATPLOTLIB_DPI):
+	def __init__(self, parent: TabCalibrator=None, width=QT_YETI.MATPLOTLIB_CANVAS_WIDTH, height=QT_YETI.MATPLOTLIB_CANVAS_HEIGHT, dpi=QT_YETI.MATPLOTLIB_DPI):
 		self.control_figure = plt.figure(figsize=(width, height), dpi=dpi)
 		super(CalibratorCanvas, self).__init__(self.control_figure)
 
@@ -54,6 +55,10 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 		#### FIXME #### → Hardcoded
 		self.control_figure.subplots_adjust(top=0.995,bottom=0.0,left=0.075,right=0.995,hspace=0.1,wspace=0.1)
 
+		if(parent):
+			self.parent : TabCalibrator = parent
+
+
 	### Plots and Callbacks ###
 	def setup_plots(self):
 
@@ -61,8 +66,8 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 
 		# Axes
 		self.axes_spectrogram = plt.subplot2grid((16,16),(0,0),colspan=16, rowspan = 8, fig=self.control_figure, label="Full_Spectrogram")
-		self.axes_trace_spectrogram = plt.subplot2grid((16,16),(8,0),colspan=16, rowspan = 1, fig=self.control_figure, label="Single_Trace_Spectrogram")
-		self.axes_spectrum = plt.subplot2grid((16,16),(9,0),colspan=16, rowspan = 6, fig=self.control_figure, label="Extracted_Spectrum")
+		self.axes_trace_spectrogram = plt.subplot2grid((16,16),(8,0),colspan=16, rowspan = 1, fig=self.control_figure, label="Single_Trace_Spectrogram", sharex=self.axes_spectrogram)
+		self.axes_spectrum = plt.subplot2grid((16,16),(9,0),colspan=16, rowspan = 6, fig=self.control_figure, label="Extracted_Spectrum", sharex=self.axes_spectrogram)
 
 		# 2D Plots
 		self.spectrogram_plot = self.axes_spectrogram.imshow([[0]],vmin=0, vmax=1, cmap = "inferno",interpolation="none", aspect="auto", label = "2D_Spectrogram")
@@ -90,56 +95,11 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 		self.axes_trace_spectrogram.axes.xaxis.set_visible(False)
 		self.axes_trace_spectrogram.axes.yaxis.set_visible(False)
 
-		#### REMOVE ####
-		# #### EXPERIMENT ###
-		# self.axes_spectrogram.axes.xaxis.set_visible(False)
-		# self.axes_trace_spectrogram.axes.xaxis.set_visible(False)
-		# self.axes_trace_spectrogram.axes.yaxis.set_visible(False)
-
-		# self.axes_spectrogram.set_ylabel(r"$m · \lambda(X,Y)$")
-		# self.axes_spectrum.set_xlabel(r"$\lambda(X,Y)$")
-		# self.axes_spectrum.set_ylabel(r"Counts (arb. u.)")
-
-		# self.spectrogram_plot = self.axes_spectrogram.imshow(self.CurrentSpectrogram.data,\
-		# 	vmin=self.CurrentSpectrogram.intmin,\
-		# 	vmax=self.CurrentSpectrogram.intmax,\
-		# 	cmap = 'afmhot',\
-		# 	interpolation='none',\
-		# 	extent=[0, self.CurrentSpectrogram.xsize-1, 0, self.CurrentSpectrogram.ysize-1],\
-		# 	aspect='auto',\
-		# 	label = "2D_Spectrogram")
-
-		# #### EXPERIMENT ####
-		# self.trace_spectrogram_plot = self.axes_trace_spectrogram.imshow([[],[]],vmin=self.CurrentSpectrogram.intmin,vmax=self.CurrentSpectrogram.intmax,cmap="afmhot",interpolation="none",extent=[0, self.CurrentSpectrogram.xsize-1, 0, self.CurrentSpectrogram.ysize-1],aspect="auto",label="Trace_Spectrogram")
-
-		# [self.spectrum_plot] 		= self.axes_spectrum.plot(self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[self.CurrentSpectrogram.ysize//2,:], linewidth=0.6, label="Data_Spectrum")
-		# [self.spectrum_plot_pixels] = self.axes_spectrum.plot(self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[self.CurrentSpectrogram.ysize//2,:], alpha=0.6, linewidth=0.45, drawstyle="steps-mid", label="Data_Spectrum_Pixel_Intensity")
-		# self.axes_spectrum.set_xlim( self.CurrentSpectrogram.xrange.min(), self.CurrentSpectrogram.xrange.max() )
-		# self.axes_spectrum.set_ylim( self.CurrentSpectrogram.intmin, self.CurrentSpectrogram.intmax )
-		
-
-		# # Text
-		# self.axes_spectrogram_text = self.axes_spectrogram.text(transform=self.axes_spectrogram.transAxes, ha='left', va='top', x=0.005, y=0.98, label="loaded_file_path", weight="bold", color="#AAAAAA", s=f"No data loaded.")
-		# self.axes_spectrum_text = self.axes_spectrum.text(transform=self.axes_spectrum.transAxes, ha='left', va='top', x=0.005, y=0.98, s=f"No data loaded.", label="texts_current_order")
-
-		# """ Experimental """
-		# self.spectrogram_plot_cal = self.axes_spectrogram.imshow(self.CurrentSpectrogram.data,\
-		# 	vmin=0,\
-		# 	vmax=100000,\
-		# 	cmap = 'gist_ncar',\
-		# 	alpha = 0.1, \
-		# 	interpolation='none',\
-		# 	extent=[0, self.CurrentSpectrogram.xsize-1, 0, self.CurrentSpectrogram.ysize-1],\
-		# 	aspect='auto',\
-		# 	label = "2D_Spectrogram_Cal")
-		# [self.calibration_help_plot] = self.axes_spectrum.plot(self.CurrentSpectrogram.xrange, self.CurrentSpectrogram.data[self.CurrentSpectrogram.ysize//2,:], alpha=0.3, linewidth=0.4, drawstyle="steps-mid", label="Data_Spectrum_Calibration")
-		# """"""
-
 	# Event handling
 	def setup_callbacks(self):
 		
 		self.mpl_connect('button_release_event', self.canvas_key_or_mouse_event)
-		self.mpl_connect('key_press_event', self.canvas_key_or_mouse_event)
+		#self.mpl_connect('key_press_event', self.canvas_key_or_mouse_event)
 		self.mpl_connect("scroll_event", self.canvas_scroll_event)
 
 	### Navigation Bar ###
@@ -147,17 +107,38 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 		return self.navigationbar
 
 	### MPL Callbacks ###
-	def canvas_key_or_mouse_event(self, event):
+	def canvas_key_or_mouse_event(self, event: matplotlib.backend_bases.Event):
+
+		print(f"Event {event}")
+		print(f"Event xd,yd {event.xdata, event.ydata}")
+		print(f"Event x,y {event.x, event.y}")
+		print(f"Event Button/Key {event.button, event.key}")
+		print(f"Event Dbl {event.dblclick}")
+
 		if(event.inaxes == self.axes_spectrogram):
 			evt_x = np.int32(np.rint(event.xdata))
 			evt_y = np.int32(np.rint(event.ydata))
 
-			nearest_order_index = self.find_nearest_order_index(evt_x, evt_y)
-			if(nearest_order_index != np.NaN):
-				self.update_spectrum(nearest_order_index)
-			#### REMOVE #### QtYetiLogger(QT_YETI.MESSAGE,f"Nearest order number {nearest_order_index + 1}")
+			# Simple left mouse click
+			if( isinstance(event, matplotlib.backend_bases.MouseEvent) and event.button == 1 ):
+				nearest_order_index = self.find_nearest_order_index(evt_x, evt_y)
+				if(nearest_order_index != np.NaN):
+					self.update_spectrum(nearest_order_index)
 
-		pass
+			# Add a point to the QTableWidget
+			if( isinstance(event, matplotlib.backend_bases.MouseEvent) and event.button >= 2 ):
+				# Open a dialogue
+				picked_wavelength, valid_datapoint = QInputDialog().getDouble(self.parent, f"Identify peak at x={evt_x} and y={evt_y}","λ = ",0.0,0.0,20000,9)
+				order_number_m = 1
+
+				try:
+					order_number_m = self.order_index_to_order_number(self.find_nearest_order_index(evt_x, evt_y))
+					if (valid_datapoint and int(picked_wavelength) > 0):
+						self.parent.gui_add_table_item((order_number_m, evt_x, evt_y, picked_wavelength))
+
+				except Exception as error:
+					# No Order Information loaded
+					QtYetiLogger(QT_YETI.ERROR, f"Exception raised: {error.args[0]}")
 
 	def canvas_scroll_event(self, event):
 		if(event.inaxes == self.axes_spectrogram):
@@ -372,6 +353,17 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 			QtYetiLogger(QT_YETI.ERROR,"Nearest Order not found. Returning np.NAN.")
 			return np.NAN
 
+	def order_index_to_order_number(self, order_index: int) -> int:
+		if( self.CurrentSpectrogram.order_list ):
+			index = int(np.clip(order_index,0,len(self.CurrentSpectrogram.order_list)-1))
+			Order = self.CurrentSpectrogram.order_list[index]
+			if( Order.order_number_calibrated == True ):
+				return Order.number_m
+		else:
+			#### REMOVE ####  QtYetiLogger(QT_YETI.ERROR,f"Spectrogram orders are not calibrated for absolut physical orders")
+			raise ValueError(f"Spectrogram orders are not calibrated for absolut physical orders")
+		
+
 	def trigger_order_extraction( self, extraction_mode: str ) -> None:
 		"""
 		Trigger order extraction
@@ -481,14 +473,26 @@ class CalibratorCanvas( FigureCanvasQTAgg ):
 		""" EXPERIMENTAL """
 		#self.spectrogram_plot_cal.set_data(self.calibration_help_matrix)
 		""""""
-
+		m_L = []
+		pixels = []
 		for point in simulated_points:
 			self.axes_spectrogram.plot(point.x,point.y,"<",fillstyle="none", markeredgewidth=0.5, label="calibrationdot_", markersize=5, color="#00AA00")
 			#self.axes_spectrogram.plot(point.x,point.y+imgslcr_offset,">",fillstyle="none", markeredgewidth=0.5, label="calibrationdot_", markersize=5, color="#00AA00")
 			self.axes_spectrogram.text(point.x+10,point.y,f"m = {int(point.order):02d}", fontsize=7,color="#00AA00", label="calibrationdot_text",alpha=0.8)
-			self.axes_spectrogram.text(point.x+10,point.y-10,f"λ = {point.wavelength:02.3f}", fontsize=5,color="#DDDDDD", label="calibrationdot_text",alpha=0.8)
+			self.axes_spectrogram.text(point.x+10,point.y-10,f"λ = {point.wavelength:03.4f}", fontsize=5,color="#DDDDDD", label="calibrationdot_text",alpha=0.8)
+			m_L.append(point.wavelength * int(point.order))
+			pixels.append(point.x)
 
 		self.draw_idle()
+
+		def WLS_CubicPolyNoOffset(px,a_3,a_2,a_1,a_0):
+			return a_3*(px)**3 + a_2*(px)**2 + a_1*(px) + a_0
+		
+		CurrentFitParameters, _ = curve_fit(WLS_CubicPolyNoOffset, pixels, m_L)
+
+		print(WLS_CubicPolyNoOffset(812,*CurrentFitParameters)/-34)
+
+
 
 
 
@@ -745,8 +749,8 @@ class TabCalibrator(QWidget):
 		self.calibrator_widget.setLayout(self.calibrator_widget_layout)
 
 		# Add QTableWidget & Rearrange
-		self.calibrator_list = QTableWidget(32,3)
-		self.calibrator_list.setHorizontalHeaderLabels(['Order','Pixel','Wavelength (Å)'])
+		self.calibrator_list = QTableWidget(1,4)
+		self.calibrator_list.setHorizontalHeaderLabels(["Order","x pixel","y Pixel", "Wavelength (Å)"])
 		self.calibrator_list.setAlternatingRowColors(True)
 		self.calibrator_list.verticalHeader().setVisible(False)
 
@@ -869,3 +873,20 @@ class TabCalibrator(QWidget):
 	@pyqtSlot()
 	def gui_open_geometric_calibrator(self):
 		self.CalibratorTool.show()
+
+	def gui_add_table_item(self, calibration_point: Tuple[int,int,int,float]) -> None:
+		testItemM = QTableWidgetItem(f"{calibration_point[0]}")
+		testItemX = QTableWidgetItem(f"{calibration_point[1]}")
+		testItemY = QTableWidgetItem(f"{calibration_point[2]}")
+		testItemL = QTableWidgetItem(f"{calibration_point[3]}")
+		print(calibration_point)
+		print(f"Row Count {self.calibrator_list.rowCount()}")
+		idx = self.calibrator_list.rowCount() -1
+		self.calibrator_list.setItem(idx,0,testItemM)
+		self.calibrator_list.setItem(idx,1,testItemX)
+		self.calibrator_list.setItem(idx,2,testItemY)
+		self.calibrator_list.setItem(idx,3,testItemL)
+		self.calibrator_list.setRowCount( self.calibrator_list.rowCount() +1)
+
+		for i in range(0,self.calibrator_list.rowCount()-1):
+			print(float(self.calibrator_list.item(i,3).text()))
