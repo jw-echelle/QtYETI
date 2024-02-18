@@ -83,7 +83,7 @@ class Order:
 		fit_parameters (ndarray): Array of fit parameters starting with the (x_offset) followed by the coefficient of the highest order when using polynomials
 		calibration_parameters (ndarray): Array of calibration parameters to translate from pixel and order_number_m to wavelength
 	"""
-	order_number_calibrated = False
+	order_number_calibrated: bool = False
 	number_m: float = None
 
 	x_range: np.ndarray = None
@@ -233,22 +233,30 @@ class Spectrogram:
 			QtYetiLogger(QT_YETI.ERROR,f"Unexpected filename. Requested and loaded file name is different. Requested: \"{loaded_filename}\" vs. Loaded: \"{self.filename}\".")
 			return
 		
+		is_any_order_calibrated = False
+		
 		if(self.order_list):
 			order_information = []
 			for order in self.order_list:
+				is_any_order_calibrated = is_any_order_calibrated or order.order_number_calibrated
 				order_number = order.number_m
 				x_start = order.x_range.min()
 				x_stop = order.x_range.max()
 				fit_output = order.fit_parameters
 
 				order_information.append([float(order_number), x_start, x_stop]+fit_output.tolist())
-
-			self.update_fit_function()
+			
 			os_path,os_file = os.path.split(loaded_filename)
 			os_filename,os_extension = os.path.splitext(os_file)
 		
 			order_info_filename = f"{os_path}/Order_Information_{os_filename}.txt"
+
+			self.update_fit_function()
 			header = self.fit_function_string
+			if( is_any_order_calibrated == True):
+				header = header + f",Calibrated_M"
+			else:
+				header = header + f",Uncalibrated"
 
 			FileSaver(order_info_filename, header, order_information)
 			QtYetiLogger(QT_YETI.MESSAGE,"Order Information and Coefficients saved.",True)
@@ -272,13 +280,27 @@ class Spectrogram:
 			part1,part2 = requested_filename.split(sep="Order_Information_")
 			matching_filename = f"{part1}{part2}" # part1 + part2
 			
-			order_information = FileReader(requested_filename).read_rows().tolist()
+			header, order_information = FileReader(requested_filename).read_rows()
+			order_information = order_information.tolist()
 			
 			cls.order_list = []
 			cls.order_centers_list = []
 
+			print(header)
+
+			calibrated_orders = False
+			if( "Calibrated_M" in header):
+				calibrated_orders = True
+
+			header = header[3:-1]
+			x0_offset_used = ("x0" in header)
+			if(x0_offset_used == True):
+				header = header[1:]
+			poly_order = len(header)-1
+			print(f"x0 used: {x0_offset_used} - Poly Order: {poly_order}")
+
 			for order_number, x_start, x_stop, *fit_output in order_information:
-				cls.order_list.append( Order(number_m=order_number, x_range=np.arange(x_start, x_stop+1, 1, dtype=np.int64), fit_parameters=np.asarray(fit_output)))
+				cls.order_list.append( Order(number_m=order_number, order_number_calibrated = calibrated_orders, x_range=np.arange(x_start, x_stop+1, 1, dtype=np.int64), fit_parameters=np.asarray(fit_output)))
 
 			QtYetiLogger(QT_YETI.MESSAGE,f"Order Information and Coefficients loaded from file via ClassMethod.",True)
 
@@ -416,13 +438,14 @@ class Spectrogram:
 		Generate a string that will be used in the order information file
 		"""		
 
-		func_string = f"Order, x_start, x_stop"
+		func_string = f"Order,x_start,x_stop"
 
 		if( QT_YETI.TracerSettings.fit_function_use_x_offset == True):
-			func_string += f", x0"
+			func_string += f",x0"
 
 		for degree in range(QT_YETI.TracerSettings.fit_function_poly_order,-1,-1):
-			func_string += f", a_{degree}"
+			func_string += f",a_{degree}"
+
 		cls.fit_function_string = func_string
 
 		### EXPERIMENT ###
@@ -927,11 +950,12 @@ class FileReader():
 	def __init__(self, filename = ""):
 		if(filename == ""):
 			QtYetiLogger(QT_YETI.ERROR, "No Filename provieded")
-			return -666
+			return -666, -666
 		else:
 			self.filename = filename
 
 	def read_rows(self) -> np.ndarray:
+		header = None
 		rows = []
 		with open(self.filename, "r") as file_handle:
 			CSVReader = csv.reader(file_handle)
@@ -952,7 +976,7 @@ class FileReader():
 						rows.append( np.asarray( row_length * [np.NAN] ) )
 						QtYetiLogger(QT_YETI.ERROR, f"Non-numeric data found in {ShellColors.FAIL}\"{self.filename}\"{ShellColors.ENDC} in line {line}. Check the file." + ShellColors.ENDC)
 
-		return np.asarray(rows)
+		return header, np.asarray(rows)
 
 class QtYetiLogger():
 	def __init__(self, message_type=0, message="", show_call_stack = False):
